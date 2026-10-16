@@ -19,15 +19,16 @@ export default function App() {
       setGate('signed-out')
       return
     }
+    // La 2FA n'est demandee que si la personne l'a activee elle-meme.
     const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    setGate(data?.currentLevel === 'aal2' ? 'ready' : 'mfa')
+    const needsCode = data?.nextLevel === 'aal2' && data.currentLevel !== 'aal2'
+    setGate(needsCode ? 'mfa' : 'ready')
   }, [])
 
   useEffect(() => {
     if (!configured) return
     void supabase.auth.getSession().then(({ data }) => evaluate(data.session))
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      // On sort du callback avant d'appeler Supabase (évite un blocage connu).
       setTimeout(() => void evaluate(s), 0)
     })
     return () => sub.subscription.unsubscribe()
