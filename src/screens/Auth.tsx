@@ -18,6 +18,16 @@ const TXT = {
     resent: 'E-mail renvoyé.',
     back: 'Retour',
     tagline: 'Les cotisations de votre groupe, claires pour tout le monde.',
+    errors: {
+      over_email_send_rate_limit: "Trop d'inscriptions en peu de temps : l'e-mail de confirmation n'a pas pu être envoyé. Réessayez dans un moment.",
+      over_request_rate_limit: 'Trop de tentatives. Patientez quelques minutes puis réessayez.',
+      invalid_credentials: 'E-mail ou mot de passe incorrect.',
+      user_already_exists: 'Un compte existe déjà avec cette adresse. Connectez-vous plutôt.',
+      email_exists: 'Un compte existe déjà avec cette adresse. Connectez-vous plutôt.',
+      email_not_confirmed: "Votre adresse n'est pas encore confirmée : ouvrez l'e-mail de confirmation (regardez aussi dans les spams).",
+      weak_password: 'Mot de passe trop faible : choisissez-en un plus long ou plus varié.',
+      validation_failed: 'Adresse e-mail invalide.',
+    } as Record<string, string>,
   },
   en: {
     sentTitle: 'Check your inbox',
@@ -29,6 +39,16 @@ const TXT = {
     resent: 'E-mail sent again.',
     back: 'Back',
     tagline: "Your group's contributions, clear for everyone.",
+    errors: {
+      over_email_send_rate_limit: 'Too many sign-ups in a short time: the confirmation e-mail could not be sent. Try again in a while.',
+      over_request_rate_limit: 'Too many attempts. Wait a few minutes and try again.',
+      invalid_credentials: 'Wrong e-mail or password.',
+      user_already_exists: 'An account already exists with this address. Sign in instead.',
+      email_exists: 'An account already exists with this address. Sign in instead.',
+      email_not_confirmed: 'Your address is not confirmed yet: open the confirmation e-mail (check your spam folder too).',
+      weak_password: 'Password too weak: choose a longer or more varied one.',
+      validation_failed: 'Invalid e-mail address.',
+    } as Record<string, string>,
   },
 }
 
@@ -57,6 +77,11 @@ export function AuthScreen() {
     return () => clearTimeout(id)
   }, [cooldown])
 
+  // Messages de Supabase (en anglais) traduits d'apres leur code ; message d'origine si le code est inconnu.
+  function authError(err: { code?: string; message: string }): string {
+    return (err.code && tx.errors[err.code]) || err.message
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     setMsg('')
@@ -78,10 +103,12 @@ export function AuthScreen() {
           })
     setBusy(false)
     if (r.error) {
-      setMsg(r.error.message)
+      setMsg(authError(r.error))
       return
     }
-    if (mode === 'up') {
+    // Confirmation d'e-mail desactivee dans Supabase : le compte est deja actif, la session arrive directement
+    // (App passe tout seul a l'ecran suivant). Pas d'ecran « Verifiez votre boite mail » dans ce cas.
+    if (mode === 'up' && !r.data.session) {
       setSent(email.trim())
       setCooldown(RESEND_DELAY)
       setNote('')
@@ -93,7 +120,7 @@ export function AuthScreen() {
     setMsg('')
     setNote('')
     const r = await supabase.auth.resend({ type: 'signup', email: sent, options: { emailRedirectTo: redirect } })
-    if (r.error) setMsg(r.error.message)
+    if (r.error) setMsg(authError(r.error))
     else setNote(tx.resent)
     setCooldown(RESEND_DELAY)
   }
