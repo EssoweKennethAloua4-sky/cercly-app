@@ -32,6 +32,16 @@ export default function App() {
       setGate('signed-out')
       return
     }
+    // Session gardee sur l'appareil alors que le compte a ete supprime dans Supabase :
+    // on la retire, sinon la personne reste « connectee » a un compte fantome et ne peut ni rejoindre ni s'inscrire.
+    // (Une simple coupure reseau n'a pas de statut 401/403/404 : elle ne deconnecte pas.)
+    const { error } = await supabase.auth.getUser()
+    if (error && [401, 403, 404].includes(error.status ?? 0)) {
+      await supabase.auth.signOut({ scope: 'local' })
+      setSession(null)
+      setGate('signed-out')
+      return
+    }
     // La 2FA n'est demandee que si la personne l'a activee elle-meme.
     const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     const needsCode = data?.nextLevel === 'aal2' && data.currentLevel !== 'aal2'
