@@ -8,6 +8,18 @@ import { GroupsGate } from './screens/GroupsGate'
 
 type Gate = 'loading' | 'signed-out' | 'mfa' | 'ready'
 
+// Lien d'invitation (?invite=CODE) : on garde le code en memoire des l'ouverture de la page,
+// que la personne soit connectee ou non, puis on le retire de l'adresse.
+;(() => {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('invite')
+  if (!code) return
+  sessionStorage.setItem('cercly.invite', code)
+  params.delete('invite')
+  const rest = params.toString()
+  window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : '') + window.location.hash)
+})()
+
 export default function App() {
   const { t } = useI18n()
   const [session, setSession] = useState<Session | null>(null)

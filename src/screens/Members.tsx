@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { Membership, MyGroup } from '../types'
@@ -16,7 +16,6 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
   const { t } = useI18n()
   const gid = group.group_id
   const isP = group.is_president
-  const [email, setEmail] = useState('')
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(false)
   const [msg, setMsg] = useState('')
@@ -30,17 +29,15 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
     await reloadMembers()
   }
 
-  async function invite(e: FormEvent) {
-    e.preventDefault()
+  async function createLink() {
     setMsg('')
-    setLink('')
     setCopied(false)
-    const { data, error } = await supabase.rpc('invite_member', { p_group: gid, p_email: email })
-    if (error) setMsg(errMsg(error))
-    else {
-      setLink(`${window.location.origin}/?invite=${String(data)}`)
-      setEmail('')
+    const { data, error } = await supabase.rpc('create_invite_link', { p_group: gid })
+    if (error) {
+      setMsg(errMsg(error))
+      return
     }
+    setLink(`${window.location.origin}/?invite=${String(data)}`)
   }
 
   async function copy() {
@@ -65,6 +62,10 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
     await reloadMembers()
   }
 
+  const whatsappUrl = link
+    ? `https://wa.me/?text=${encodeURIComponent(t('memInviteMsg', { group: group.group.name, link }))}`
+    : ''
+
   return (
     <div className="stack">
       <h2>{t('memTitle')}</h2>
@@ -73,23 +74,26 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
       {msg && <p className="msg">{msg}</p>}
 
       {isP && (
-        <form className="card" onSubmit={invite}>
+        <div className="card">
           <h3>{t('memInvite')}</h3>
-          <label className="field">
-            <span>{t('email')}</span>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <button className="btn primary">{t('memInviteBtn')}</button>
+          <button type="button" className="btn primary" onClick={() => void createLink()}>
+            {t('memInviteBtn')}
+          </button>
           {link && (
             <div className="stack">
               <p className="small">{t('memInviteLink')}</p>
               <input readOnly value={link} onFocus={(e) => e.target.select()} />
-              <button type="button" className="btn small" onClick={() => void copy()}>
-                {copied ? t('copied') : t('copy')}
-              </button>
+              <div className="row wrap">
+                <button type="button" className="btn small" onClick={() => void copy()}>
+                  {copied ? t('copied') : t('copy')}
+                </button>
+                <a className="btn small" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                  {t('memShareWhatsapp')}
+                </a>
+              </div>
             </div>
           )}
-        </form>
+        </div>
       )}
 
       {members.map((m) => (
