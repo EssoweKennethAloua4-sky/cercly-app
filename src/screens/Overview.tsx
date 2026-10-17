@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
-import type { GroupInfo, MemberTotal, MyGroup } from '../types'
+import type { MemberTotal, MyGroup } from '../types'
 import { errMsg, money } from '../lib/format'
+import { cellOf, cover, monthIndex, parsePlan } from '../lib/schedule'
+import { Details } from './Details'
 import '../suivi.css'
-
-type Cell = 'paid' | 'pending' | 'late' | 'due' | 'future' | 'before'
 
 const fr = {
   upToDate: 'À jour',
@@ -16,20 +16,7 @@ const fr = {
   setupHint: "Pour activer le suivi mois par mois, indiquez le montant attendu chaque mois dans l'onglet Réglages.",
   prevYear: 'Année précédente',
   nextYear: 'Année suivante',
-  initial: 'Apport initial',
-  initialPaid: 'payé',
-  initialMissing: 'il manque {amount}',
-  paidUntil: "Payé jusqu'à {month}",
-  paidNothing: 'Aucun mois payé pour le moment.',
-  partial: 'partiel : {paid} sur {due}',
-  st: {
-    paid: 'Payé',
-    pending: 'À valider',
-    late: 'En retard',
-    due: 'À payer ce mois-ci',
-    future: 'À venir',
-    before: '',
-  } as Record<Cell, string>,
+  openDetails: 'Voir le détail de {name}',
 }
 
 type Dict = typeof fr
@@ -43,78 +30,11 @@ const en: Dict = {
   setupHint: 'To turn on month-by-month tracking, set the amount expected each month in the Settings tab.',
   prevYear: 'Previous year',
   nextYear: 'Next year',
-  initial: 'Initial contribution',
-  initialPaid: 'paid',
-  initialMissing: '{amount} missing',
-  paidUntil: 'Paid up to {month}',
-  paidNothing: 'No month paid yet.',
-  partial: 'partial: {paid} of {due}',
-  st: {
-    paid: 'Paid',
-    pending: 'To review',
-    late: 'Overdue',
-    due: 'Due this month',
-    future: 'Upcoming',
-    before: '',
-  } as Record<Cell, string>,
+  openDetails: 'See details for {name}',
 }
 
 const TXT = { fr, en }
-
 const MONTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-
-function fill(s: string, v: Record<string, string | number>): string {
-  return s.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k] ?? ''))
-}
-
-interface Plan {
-  expected: number
-  initial: number
-  sy: number
-  sm: number
-}
-
-// Montants en centimes pour eviter les erreurs d'arrondi.
-function parsePlan(g: GroupInfo): Plan | null {
-  const expected = Math.round(Number(g.expected_amount ?? 0) * 100)
-  if (!(expected > 0) || !g.start_month) return null
-  const [y, m] = g.start_month.split('-').map(Number)
-  if (!y || !m) return null
-  return { expected, initial: Math.round(Number(g.initial_amount ?? 0) * 100), sy: y, sm: m - 1 }
-}
-
-function monthIndex(plan: Plan, y: number, m: number): number {
-  return (y - plan.sy) * 12 + (m - plan.sm)
-}
-
-interface Cover {
-  full: number
-  allFull: number
-  monthsCash: number
-  initialMissing: number
-}
-
-// Les cotisations validees remplissent d'abord l'apport initial, puis chaque mois dans l'ordre.
-function cover(plan: Plan, validated: number, pending: number): Cover {
-  const v = Math.round(validated * 100)
-  const p = Math.round(pending * 100)
-  const monthsCash = Math.max(0, v - plan.initial)
-  return {
-    full: Math.floor(monthsCash / plan.expected),
-    allFull: Math.floor(Math.max(0, v + p - plan.initial) / plan.expected),
-    monthsCash,
-    initialMissing: Math.max(0, plan.initial - v),
-  }
-}
-
-function cellOf(cov: Cover, idx: number, curIdx: number): Cell {
-  if (idx < 0) return 'before'
-  if (idx < cov.full) return 'paid'
-  if (idx < cov.allFull) return 'pending'
-  if (idx < curIdx) return 'late'
-  if (idx === curIdx) return 'due'
-  return 'future'
-}
 
 export function Overview({ group }: { group: MyGroup }) {
   const { t, locale } = useI18n()
@@ -127,34 +47,52 @@ export function Overview({ group }: { group: MyGroup }) {
   const [validated, setValidated] = useState(0)
   const [pending, setPending] = useState(0)
   const [rows, setRows] = useState<MemberTotal[]>([])
+  const [names, setNames] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
-  const [open, setOpen] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [year, setYear] = useState(now.getFullYear())
+  const [tick, setTick] = useState(0)
+  const detailsRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    void (async () => {
-      const a = await supabase.rpc('group_total', { p_group: group.group_id })
-      const b = await supabase.rpc('group_totals', { p_group: group.group_id })
-      if (a.error || b.error) {
-        setMsg(errMsg(a.error ?? b.error))
-        return
-      }
-      const first = (a.data as Array<{ validated: number; pending: number }>)[0]
-      setValidated(Number(first?.validated ?? 0))
-      setPending(Number(first?.pending ?? 0))
-      setRows(
-        (b.data as MemberTotal[]).map((r) => ({ ...r, validated: Number(r.validated), pending: Number(r.pending) })),
-      )
-    })()
+  const load = useCallback(async () => {
+    const a = await supabase.rpc('group_total', { p_group: group.group_id })
+    const b = await supabase.rpc('group_totals', { p_group: group.group_id })
+    if (a.error || b.error) {
+      setMsg(errMsg(a.error ?? b.error))
+      return
+    }
+    setMsg('')
+    const first = (a.data as Array<{ validated: number; pending: number }>)[0]
+    setValidated(Number(first?.validated ?? 0))
+    setPending(Number(first?.pending ?? 0))
+    setRows((b.data as MemberTotal[]).map((r) => ({ ...r, validated: Number(r.validated), pending: Number(r.pending) })))
+    const n = await supabase.from('memberships').select('user_id,display_name').eq('group_id', group.group_id)
+    if (!n.error) {
+      const list = (n.data ?? []) as Array<{ user_id: string; display_name: string }>
+      setNames(Object.fromEntries(list.map((m) => [m.user_id, m.display_name])))
+    }
+    setTick((x) => x + 1)
   }, [group.group_id])
+
+  // Rechargement : a l'ouverture, au retour sur l'onglet ou la fenetre, puis toutes les 20 secondes.
+  useEffect(() => {
+    void load()
+    const onFocus = () => void load()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    const id = window.setInterval(() => void load(), 20000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(id)
+    }
+  }, [load])
 
   const max = Math.max(1, ...rows.map((r) => r.validated))
   const fmt = (cents: number) => money(cents / 100, cur, locale)
-
-  const monthName = (y: number, m: number) => {
-    const s = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(new Date(y, m, 1))
-    return s.charAt(0).toUpperCase() + s.slice(1)
-  }
   const letter = (m: number) => new Intl.DateTimeFormat(loc, { month: 'narrow' }).format(new Date(2000, m, 1)).toUpperCase()
 
   const curIdx = plan ? monthIndex(plan, now.getFullYear(), now.getMonth()) : 0
@@ -167,6 +105,11 @@ export function Overview({ group }: { group: MyGroup }) {
       if (late === 0) upToDate += 1
       lateTotal += late
     }
+  }
+
+  function openDetails(id: string) {
+    setSelected(id)
+    window.setTimeout(() => detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
   return (
@@ -200,34 +143,39 @@ export function Overview({ group }: { group: MyGroup }) {
       )}
 
       {plan ? (
-        <div className="card">
-          <div className="row between">
-            <h3>{tx.monthly}</h3>
-            <div className="ov-year">
-              <button type="button" className="btn small" aria-label={tx.prevYear} onClick={() => setYear(year - 1)}>
-                ‹
-              </button>
-              <strong>{year}</strong>
-              <button type="button" className="btn small" aria-label={tx.nextYear} onClick={() => setYear(year + 1)}>
-                ›
-              </button>
+        <>
+          <div className="card">
+            <div className="row between">
+              <h3>{tx.monthly}</h3>
+              <div className="ov-year">
+                <button type="button" className="btn small" aria-label={tx.prevYear} onClick={() => setYear(year - 1)}>
+                  ‹
+                </button>
+                <strong>{year}</strong>
+                <button type="button" className="btn small" aria-label={tx.nextYear} onClick={() => setYear(year + 1)}>
+                  ›
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="ov-head" aria-hidden="true">
-            <span className="ov-name" />
-            <span className="ov-sq">
-              {MONTHS.map((m) => (
-                <i key={m}>{letter(m)}</i>
-              ))}
-            </span>
-            <span className="ov-count">{tx.countHead}</span>
-          </div>
-          {rows.map((r) => {
-            const cov = cover(plan, r.validated, r.pending)
-            const isOpen = open === r.user_id
-            return (
-              <div key={r.user_id}>
-                <button type="button" className="ov-row" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.user_id)}>
+            <div className="ov-head" aria-hidden="true">
+              <span className="ov-name" />
+              <span className="ov-sq">
+                {MONTHS.map((m) => (
+                  <i key={m}>{letter(m)}</i>
+                ))}
+              </span>
+              <span className="ov-count">{tx.countHead}</span>
+            </div>
+            {rows.map((r) => {
+              const cov = cover(plan, r.validated, r.pending)
+              return (
+                <button
+                  key={r.user_id}
+                  type="button"
+                  className="ov-row"
+                  aria-label={tx.openDetails.replace('{name}', r.display_name)}
+                  onClick={() => openDetails(r.user_id)}
+                >
                   <span className="ov-name">{r.display_name}</span>
                   <span className="ov-sq">
                     {MONTHS.map((m) => (
@@ -236,62 +184,46 @@ export function Overview({ group }: { group: MyGroup }) {
                   </span>
                   <span className="ov-count">{cov.full}</span>
                 </button>
-                {isOpen && (
-                  <div className="ov-detail">
-                    <p className="small">
-                      {cov.full > 0 ? fill(tx.paidUntil, { month: monthName(plan.sy, plan.sm + cov.full - 1) }) : tx.paidNothing}
-                    </p>
-                    {plan.initial > 0 && (
-                      <p className="small">
-                        {tx.initial} : {cov.initialMissing === 0 ? tx.initialPaid : fill(tx.initialMissing, { amount: fmt(cov.initialMissing) })}
-                      </p>
-                    )}
-                    <ul className="ov-list">
-                      {MONTHS.map((m) => {
-                        const idx = monthIndex(plan, year, m)
-                        const cell = cellOf(cov, idx, curIdx)
-                        if (cell === 'before') return null
-                        const covered = Math.min(plan.expected, Math.max(0, cov.monthsCash - idx * plan.expected))
-                        const partial = cell === 'late' || cell === 'due' ? covered : 0
-                        return (
-                          <li key={m}>
-                            <span>{monthName(year, m)}</span>
-                            <span className={`ov-st-${cell}`}>
-                              {tx.st[cell]}
-                              {partial > 0 && ` · ${fill(tx.partial, { paid: fmt(partial), due: fmt(plan.expected) })}`}
-                            </span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          <div className="ov-legend">
-            <span>
-              <i className="ov-paid" />
-              {tx.legend.paid}
-            </span>
-            <span>
-              <i className="ov-late" />
-              {tx.legend.late}
-            </span>
-            <span>
-              <i className="ov-pending" />
-              {tx.legend.pending}
-            </span>
-            <span>
-              <i className="ov-due" />
-              {tx.legend.due}
-            </span>
-            <span>
-              <i className="ov-future" />
-              {tx.legend.future}
-            </span>
+              )
+            })}
+            <div className="ov-legend">
+              <span>
+                <i className="ov-paid" />
+                {tx.legend.paid}
+              </span>
+              <span>
+                <i className="ov-late" />
+                {tx.legend.late}
+              </span>
+              <span>
+                <i className="ov-pending" />
+                {tx.legend.pending}
+              </span>
+              <span>
+                <i className="ov-due" />
+                {tx.legend.due}
+              </span>
+              <span>
+                <i className="ov-future" />
+                {tx.legend.future}
+              </span>
+            </div>
           </div>
-        </div>
+
+          <div ref={detailsRef}>
+            <Details
+              group={group}
+              plan={plan}
+              rows={rows}
+              names={names}
+              year={year}
+              curIdx={curIdx}
+              selected={selected}
+              onSelect={setSelected}
+              tick={tick}
+            />
+          </div>
+        </>
       ) : (
         <div className="card">
           <h3>{t('ovPerMember')}</h3>
