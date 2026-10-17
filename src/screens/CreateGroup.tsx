@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import { errMsg } from '../lib/format'
@@ -14,6 +14,14 @@ export function CreateGroup({ onDone, onCancel, first }: { onDone: (id: string) 
   const [display, setDisplay] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Le prenom a deja ete donne a l'inscription : on le propose plutot que de le redemander.
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      const saved = String(data.user?.user_metadata?.display_name ?? '').trim()
+      if (saved) setDisplay((d) => d || saved)
+    })
+  }, [])
 
   // Noms des monnaies dans la langue de l'utilisateur ; repli sur le code seul si le navigateur ne sait pas.
   const currencyOptions = useMemo(() => {
