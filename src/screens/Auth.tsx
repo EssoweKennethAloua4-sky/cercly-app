@@ -1,24 +1,59 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import { Logo } from '../components/Logo'
 import { LangSwitch } from '../components/LangSwitch'
 
 const MIN_PASSWORD = 8
+const RESEND_DELAY = 60
+
+const TXT = {
+  fr: {
+    sentTitle: 'Vérifiez votre boîte mail',
+    sentBody: 'Nous avons envoyé un e-mail de confirmation à {email}. Ouvrez-le et cliquez sur le lien pour activer votre compte.',
+    sentSpam: "Vous ne le voyez pas ? Regardez dans les courriers indésirables (spam). L'e-mail peut mettre une à deux minutes à arriver.",
+    sentNext: 'Une fois votre adresse confirmée, revenez sur Cercly : vous serez connecté, ou vous pourrez vous connecter avec votre mot de passe.',
+    resend: "Renvoyer l'e-mail",
+    resendIn: 'Renvoyer dans {s} s',
+    resent: 'E-mail renvoyé.',
+    back: 'Retour',
+  },
+  en: {
+    sentTitle: 'Check your inbox',
+    sentBody: 'We sent a confirmation e-mail to {email}. Open it and click the link to activate your account.',
+    sentSpam: "Can't see it? Check your spam folder. The e-mail can take a minute or two to arrive.",
+    sentNext: 'Once your address is confirmed, come back to Cercly: you will be signed in, or you can sign in with your password.',
+    resend: 'Resend the e-mail',
+    resendIn: 'Resend in {s} s',
+    resent: 'E-mail sent again.',
+    back: 'Back',
+  },
+}
 
 function pendingInvite(): string | null {
   return new URLSearchParams(window.location.search).get('invite') ?? sessionStorage.getItem('cercly.invite')
 }
 
 export function AuthScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const tx = TXT[locale]
   const invite = pendingInvite()
+  const redirect = invite ? `${window.location.origin}/?invite=${invite}` : window.location.origin
   const [mode, setMode] = useState<'in' | 'up'>(invite ? 'up' : 'in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState('')
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState<string | null>(null)
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(id)
+  }, [cooldown])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -36,15 +71,65 @@ export function AuthScreen() {
             password,
             options: {
               data: { display_name: name.trim(), invite: invite ?? undefined },
-              emailRedirectTo: invite
-                ? `${window.location.origin}/?invite=${invite}`
-                : window.location.origin,
+              emailRedirectTo: redirect,
             },
           })
     setBusy(false)
-    if (r.error) setMsg(r.error.message)
-    else if (mode === 'up') setMsg(t('checkEmail'))
+    if (r.error) {
+      setMsg(r.error.message)
+      return
+    }
+    if (mode === 'up') {
+      setSent(email.trim())
+      setCooldown(RESEND_DELAY)
+      setNote('')
+    }
   }
+
+  async function resend() {
+    if (!sent || cooldown > 0) return
+    setMsg('')
+    setNote('')
+    const r = await supabase.auth.resend({ type: 'signup', email: sent, options: { emailRedirectTo: redirect } })
+    if (r.error) setMsg(r.error.message)
+    else setNote(tx.resent)
+    setCooldown(RESEND_DELAY)
+  }
+
+  if (sent)
+    return (
+      <div className="center">
+        <div className="card narrow">
+          <div className="row between">
+            <div className="brand">
+              <Logo /> <span>{t('appName')}</span>
+            </div>
+            <LangSwitch />
+          </div>
+          <h1>{tx.sentTitle}</h1>
+          <p>{tx.sentBody.replace('{email}', sent)}</p>
+          <p className="small">{tx.sentSpam}</p>
+          <p className="small">{tx.sentNext}</p>
+          {msg && <p className="msg">{msg}</p>}
+          {note && <p className="small">{note}</p>}
+          <button type="button" className="btn primary" disabled={cooldown > 0} onClick={() => void resend()}>
+            {cooldown > 0 ? tx.resendIn.replace('{s}', String(cooldown)) : tx.resend}
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              setSent(null)
+              setMode('in')
+              setMsg('')
+              setNote('')
+            }}
+          >
+            {tx.back}
+          </button>
+        </div>
+      </div>
+    )
 
   return (
     <div className="center">
