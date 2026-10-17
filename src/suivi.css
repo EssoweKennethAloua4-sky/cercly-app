@@ -48,7 +48,7 @@
 
 .pill-light {
   background: #ffffff;
-  color: #1e7cf2;
+  color: var(--hero-ink);
 }
 
 .pill-glass {
@@ -63,31 +63,13 @@
   gap: 4px;
 }
 
-.tile-value {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.chip {
-  font-size: 12px;
-  border-radius: 999px;
-  padding: 2px 10px;
+.tile .tag {
   align-self: flex-start;
 }
 
-.chip-ok {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-
-.chip-bad {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-
-.chip-warn {
-  background: var(--warn-soft);
-  color: var(--warn);
+.tile-value {
+  font-size: 22px;
+  font-weight: 700;
 }
 
 /* ---------- Barres segmentees par membre ---------- */
@@ -153,7 +135,7 @@
 }
 
 .seg-initial {
-  background: #0b4fb3;
+  background: var(--seg-initial);
 }
 
 .seg-paid {
@@ -161,11 +143,12 @@
 }
 
 .seg-pending {
-  background: #9cc8ff;
+  background: var(--seg-pending);
 }
 
 .seg-late {
-  background: #f4a3a3;
+  /* rouge franc + hachures : le retard se voit meme sans distinguer les couleurs */
+  background: repeating-linear-gradient(135deg, var(--bad) 0 3px, var(--bad-soft) 3px 5px);
 }
 
 .seg-due {
@@ -179,7 +162,8 @@
 
 .seg-before {
   background: transparent;
-  border: 1px dashed var(--line);
+  border: 1px dashed var(--muted);
+  opacity: 0.4;
 }
 
 .seg-sub {
@@ -277,28 +261,6 @@
 .dt-sub {
   font-size: 12px;
   color: var(--muted);
-}
-
-.dt-chip {
-  font-size: 12px;
-  border-radius: 999px;
-  padding: 2px 10px;
-  white-space: nowrap;
-}
-
-.dt-ok {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-
-.dt-late {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-
-.dt-wait {
-  background: var(--warn-soft);
-  color: var(--warn);
 }
 
 .dt-good {
@@ -423,22 +385,40 @@
 .dt-sub,
 .dt-sum strong,
 .dt-pay-head,
-.dt-chip,
-.chip,
+.tag,
 .count,
 .ov-list li {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Segments en theme sombre ---------- */
-:root[data-theme='dark'] .seg-late {
-  background: #b8474d;
+.set-heading {
+  margin: 8px 4px -4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
-:root[data-theme='dark'] .seg-pending {
-  background: #5a8fcf;
+.set-signout {
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
-:root[data-theme='dark'] .seg-initial {
-  background: #2d6fd1;
+/* ---------- Chargement ---------- */
+.skel {
+  border-radius: 22px;
+  background: linear-gradient(90deg, var(--card) 0%, var(--bg2) 50%, var(--card) 100%);
+  background-size: 200% 100%;
+  border: 1px solid var(--line);
+  animation: skel 1.2s ease-in-out infinite;
+}
+
+.skel-hero { height: 180px; border-radius: 24px; }
+.skel-tile { height: 104px; }
+.skel-list { height: 260px; }
+
+@keyframes skel {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
 }

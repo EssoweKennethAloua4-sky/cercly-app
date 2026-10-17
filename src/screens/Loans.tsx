@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Loan, LoanBorrower, Membership, MyGroup } from '../types'
 import { day, errMsg, money } from '../lib/format'
@@ -30,6 +31,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
   const [link, setLink] = useState<{ token: string; status: string } | null>(null)
   const [copied, setCopied] = useState(false)
   const [loans, setLoans] = useState<Loan[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [borrowers, setBorrowers] = useState<Record<string, LoanBorrower>>({})
   const [myVotes, setMyVotes] = useState<Record<string, string>>({})
   const [canVote, setCanVote] = useState<Record<string, boolean>>({})
@@ -65,6 +67,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
     }
     const list = ((res.data ?? []) as Loan[]).map((l) => ({ ...l, amount: Number(l.amount) }))
     setLoans(list)
+    setLoaded(true)
     const ids = list.map((l) => l.id)
     if (ids.length === 0) return
 
@@ -338,7 +341,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
         )}
       </section>
 
-      {loans.length === 0 && <p className="card small">{t('loanNone')}</p>}
+      {loaded && loans.length === 0 && <Empty icon="loans" title={t('loanNone')} text={t('loanNoneHint')} />}
       {loans.map(card)}
     </div>
   )

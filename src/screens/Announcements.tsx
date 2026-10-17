@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../supabase'
+import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Announcement, Membership, MyGroup } from '../types'
 import { day, errMsg } from '../lib/format'
@@ -9,6 +10,7 @@ export function Announcements({ group, members, userId }: { group: MyGroup; memb
   const gid = group.group_id
   const canPublish = group.can_publish || group.is_president
   const [items, setItems] = useState<Announcement[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [msg, setMsg] = useState('')
@@ -21,7 +23,10 @@ export function Announcements({ group, members, userId }: { group: MyGroup; memb
       .order('created_at', { ascending: false })
       .limit(100)
     if (error) setMsg(errMsg(error))
-    else setItems((data ?? []) as Announcement[])
+    else {
+      setItems((data ?? []) as Announcement[])
+      setLoaded(true)
+    }
   }, [gid])
 
   useEffect(() => {
@@ -65,7 +70,7 @@ export function Announcements({ group, members, userId }: { group: MyGroup; memb
         </form>
       )}
       {msg && <p className="msg">{msg}</p>}
-      {items.length === 0 && <p className="card small">{t('annEmpty')}</p>}
+      {loaded && items.length === 0 && <Empty icon="ann" title={t('annEmpty')} text={t('annEmptyHint')} />}
       {items.map((a) => (
         <article key={a.id} className="card accent">
           <div className="row between">

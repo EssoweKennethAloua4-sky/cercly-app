@@ -6,7 +6,7 @@ import { day, money } from '../lib/format'
 
 export function NotificationsPanel({ groupId, currency, onRead }: { groupId: string; currency: string; onRead: () => void }) {
   const { t, locale } = useI18n()
-  const [items, setItems] = useState<AppNotification[]>([])
+  const [items, setItems] = useState<AppNotification[] | null>(null)
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -46,9 +46,10 @@ export function NotificationsPanel({ groupId, currency, onRead }: { groupId: str
           {t('notifMarkRead')}
         </button>
       </div>
-      {items.length === 0 && <p className="small">{t('notifNone')}</p>}
+      {items === null && <p className="small">{t('loading')}</p>}
+      {items?.length === 0 && <p className="small">{t('notifNone')}</p>}
       <ul className="notifs">
-        {items.map((n) => (
+        {(items ?? []).map((n) => (
           <li key={n.id} className={n.read_at ? '' : 'unread'}>
             <div>{text(n)}</div>
             <small>{day(n.created_at, locale)}</small>

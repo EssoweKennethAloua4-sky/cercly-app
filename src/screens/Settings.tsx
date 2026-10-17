@@ -4,6 +4,7 @@ import { useI18n } from '../i18n'
 import type { GroupModules, ModuleName, MyGroup } from '../types'
 import { errMsg, money } from '../lib/format'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
+import { LangSwitch } from '../components/LangSwitch'
 import '../suivi.css'
 
 const MODULES: ModuleName[] = ['annonces', 'cotisations', 'rappels', 'prets']
@@ -11,6 +12,10 @@ const THEMES: Theme[] = ['light', 'dark', 'auto']
 
 const TXT = {
   fr: {
+    account: 'Mon compte',
+    groupSection: 'Groupe {name}',
+    language: 'Langue',
+    newGroupHint: 'Créez un autre groupe dont vous serez président.',
     appearance: 'Apparence',
     themes: { light: 'Clair', dark: 'Sombre', auto: 'Automatique' } as Record<Theme, string>,
     themeHint: 'Le choix est enregistré sur cet appareil. Par défaut : clair.',
@@ -29,6 +34,10 @@ const TXT = {
     since: 'depuis {month}',
   },
   en: {
+    account: 'My account',
+    groupSection: 'Group {name}',
+    language: 'Language',
+    newGroupHint: 'Create another group where you will be president.',
     appearance: 'Appearance',
     themes: { light: 'Light', dark: 'Dark', auto: 'Automatic' } as Record<Theme, string>,
     themeHint: 'Your choice is saved on this device. Default: light.',
@@ -56,7 +65,16 @@ function toNumber(s: string): number {
   return Number(s.trim().replace(/\s/g, '').replace(',', '.'))
 }
 
-export function Settings({ group, modules, reloadModules, reloadGroups }: { group: MyGroup; modules: GroupModules; reloadModules: () => Promise<void>; reloadGroups: () => Promise<void> }) {
+interface Props {
+  group: MyGroup
+  userId: string
+  modules: GroupModules
+  reloadModules: () => Promise<void>
+  reloadGroups: () => Promise<void>
+  onNewGroup: () => void
+}
+
+export function Settings({ group, userId, modules, reloadModules, reloadGroups, onNewGroup }: Props) {
   const { t, locale } = useI18n()
   const tx = TXT[locale]
   const gid = group.group_id
@@ -150,6 +168,8 @@ export function Settings({ group, modules, reloadModules, reloadGroups }: { grou
       {msg && <p className="msg">{msg}</p>}
       {ok && <p className="ok-text">{t('setSaved')}</p>}
 
+      <h3 className="set-heading">{tx.account}</h3>
+
       <section className="card">
         <h3>{tx.appearance}</h3>
         <div className="choices" role="radiogroup" aria-label={tx.appearance}>
@@ -162,8 +182,26 @@ export function Settings({ group, modules, reloadModules, reloadGroups }: { grou
         <p className="small">{tx.themeHint}</p>
       </section>
 
+      <section className="card">
+        <div className="row between">
+          <h3>{tx.language}</h3>
+          <LangSwitch onChange={(l) => void supabase.from('profiles').update({ locale: l }).eq('id', userId)} />
+        </div>
+        <div className="row between wrap">
+          <p className="small">{tx.newGroupHint}</p>
+          <button type="button" className="btn small" onClick={onNewGroup}>
+            {t('newGroup')}
+          </button>
+        </div>
+        <button type="button" className="btn danger set-signout" onClick={() => void supabase.auth.signOut()}>
+          {t('signOut')}
+        </button>
+      </section>
+
       {isP && (
         <>
+          <h3 className="set-heading">{fill(tx.groupSection, { name: g.name })}</h3>
+
           <section className="card">
             <h3>{t('setModules')}</h3>
             {MODULES.map((m) => (

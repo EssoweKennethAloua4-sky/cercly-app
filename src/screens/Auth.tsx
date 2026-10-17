@@ -17,6 +17,7 @@ const TXT = {
     resendIn: 'Renvoyer dans {s} s',
     resent: 'E-mail renvoyé.',
     back: 'Retour',
+    tagline: 'Les cotisations de votre groupe, claires pour tout le monde.',
   },
   en: {
     sentTitle: 'Check your inbox',
@@ -27,6 +28,7 @@ const TXT = {
     resendIn: 'Resend in {s} s',
     resent: 'E-mail sent again.',
     back: 'Back',
+    tagline: "Your group's contributions, clear for everyone.",
   },
 }
 
@@ -133,12 +135,14 @@ export function AuthScreen() {
 
   return (
     <div className="center">
-      <form className="card narrow" onSubmit={submit}>
-        <div className="row between">
-          <div className="brand">
-            <Logo /> <span>{t('appName')}</span>
-          </div>
+      <form className="card narrow auth-card" onSubmit={submit}>
+        <div className="auth-lang">
           <LangSwitch />
+        </div>
+        <div className="auth-intro">
+          <Logo size={56} />
+          <strong>{t('appName')}</strong>
+          <p>{tx.tagline}</p>
         </div>
         <h1>{mode === 'in' ? t('authIn') : t('authUp')}</h1>
         {mode === 'up' && (

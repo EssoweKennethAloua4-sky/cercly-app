@@ -205,7 +205,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
                   {tx.received} {fmt(v)} · {tx.dueToDate} {fmt(due)}
                 </span>
               </span>
-              <span className={`dt-chip ${late > 0 ? 'dt-late' : 'dt-ok'}`}>
+              <span className={`tag ${late > 0 ? 'bad' : 'ok'}`}>
                 {late > 0 ? fill(tx.late, { amount: fmt(late) }) : ahead > 0 ? fill(tx.ahead, { amount: fmt(ahead) }) : tx.upToDate}
               </span>
               <span className="dt-arrow" aria-hidden="true">
@@ -273,7 +273,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
         {items !== null && history.length === 0 && <p className="small">{tx.noPayments}</p>}
         {history.map((c) => {
           const parts = piecesById.get(c.id) ?? []
-          const statusClass = c.status === 'validee' ? 'dt-ok' : c.status === 'rejetee' ? 'dt-late' : 'dt-wait'
+          const statusClass = c.status === 'validee' ? 'ok' : c.status === 'rejetee' ? 'bad' : 'warn'
           return (
             <div key={c.id} className="dt-pay">
               <div className="dt-pay-head">
@@ -281,7 +281,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
                   <strong>{fmt(Math.round(Number(c.amount) * 100))}</strong>
                   <span className="dt-sub"> · {fmtDate(c.paid_on)}</span>
                 </span>
-                <span className={`dt-chip ${statusClass}`}>{tx.status[c.status] ?? c.status}</span>
+                <span className={`tag ${statusClass}`}>{tx.status[c.status] ?? c.status}</span>
               </div>
               {c.payer_id !== c.for_user_id && (
                 <p className="small">{fill(tx.paidBy, { name: names[c.payer_id] ?? tx.someone })}</p>

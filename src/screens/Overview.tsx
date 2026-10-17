@@ -67,6 +67,7 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
   const [rows, setRows] = useState<MemberTotal[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
+  const [loaded, setLoaded] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [year, setYear] = useState(now.getFullYear())
   const [tick, setTick] = useState(0)
@@ -89,11 +90,13 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
       const list = (n.data ?? []) as Array<{ user_id: string; display_name: string }>
       setNames(Object.fromEntries(list.map((m) => [m.user_id, m.display_name])))
     }
+    setLoaded(true)
     setTick((x) => x + 1)
   }, [group.group_id])
 
   // Rechargement : a l'ouverture, au retour sur l'onglet ou la fenetre, puis toutes les 20 secondes.
   useEffect(() => {
+    setLoaded(false)
     void load()
     const onFocus = () => void load()
     const onVisible = () => {
@@ -131,6 +134,20 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
     window.setTimeout(() => detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
+  // Tant que les chiffres ne sont pas arrives, on montre des blocs gris plutot qu'un faux "0".
+  if (!loaded)
+    return (
+      <div className="stack" aria-busy="true">
+        {msg && <p className="msg">{msg}</p>}
+        <div className="skel skel-hero" />
+        <div className="grid2">
+          <div className="skel skel-tile" />
+          <div className="skel skel-tile" />
+        </div>
+        <div className="skel skel-list" />
+      </div>
+    )
+
   return (
     <div className="stack">
       {msg && <p className="msg">{msg}</p>}
@@ -162,14 +179,14 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
             <div className="tile-value">
               {upToDate}/{rows.length}
             </div>
-            <span className={`chip ${lateCount > 0 ? 'chip-bad' : 'chip-ok'}`}>
+            <span className={`tag ${lateCount > 0 ? 'bad' : 'ok'}`}>
               {lateCount > 0 ? tx.someLate.replace('{n}', String(lateCount)) : tx.allUpToDate}
             </span>
           </div>
           <div className="card tile">
             <small>{tx.lateTotal}</small>
             <div className="tile-value">{fmt(lateTotal)}</div>
-            <span className={`chip ${lateTotal > 0 ? 'chip-warn' : 'chip-ok'}`}>{lateTotal > 0 ? tx.catchUp : tx.nothingLate}</span>
+            <span className={`tag ${lateTotal > 0 ? 'warn' : 'ok'}`}>{lateTotal > 0 ? tx.catchUp : tx.nothingLate}</span>
           </div>
         </div>
       )}
