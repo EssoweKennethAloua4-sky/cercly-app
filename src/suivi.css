@@ -213,20 +213,6 @@
   box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  .seg-late {
-    background: #b8474d;
-  }
-
-  .seg-pending {
-    background: #5a8fcf;
-  }
-
-  .seg-initial {
-    background: #2d6fd1;
-  }
-}
-
 /* ---------- Details par personne ---------- */
 .ov-list {
   list-style: none;
@@ -401,4 +387,58 @@
 
 .set-summary-text {
   margin: 4px 0 0;
+}
+
+/* ---------- Choix du theme (Reglages > Apparence) ---------- */
+.choices {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.choice {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.choice.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+/* ---------- Chiffres : meme largeur pour que les montants s'alignent ---------- */
+.big,
+.hero-amount,
+.tile-value,
+.seg-sub,
+.seg-count,
+.dt-sub,
+.dt-sum strong,
+.dt-pay-head,
+.dt-chip,
+.chip,
+.count,
+.ov-list li {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Segments en theme sombre ---------- */
+:root[data-theme='dark'] .seg-late {
+  background: #b8474d;
+}
+
+:root[data-theme='dark'] .seg-pending {
+  background: #5a8fcf;
+}
+
+:root[data-theme='dark'] .seg-initial {
+  background: #2d6fd1;
 }

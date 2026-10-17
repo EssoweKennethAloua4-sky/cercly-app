@@ -3,12 +3,17 @@ import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupModules, ModuleName, MyGroup } from '../types'
 import { errMsg, money } from '../lib/format'
+import { getTheme, setTheme, type Theme } from '../lib/theme'
 import '../suivi.css'
 
 const MODULES: ModuleName[] = ['annonces', 'cotisations', 'rappels', 'prets']
+const THEMES: Theme[] = ['light', 'dark', 'auto']
 
 const TXT = {
   fr: {
+    appearance: 'Apparence',
+    themes: { light: 'Clair', dark: 'Sombre', auto: 'Automatique' } as Record<Theme, string>,
+    themeHint: 'Le choix est enregistré sur cet appareil. Par défaut : clair.',
     title: 'Cotisation mensuelle',
     intro: "Active le suivi mois par mois dans l'onglet Suivi. Laissez le montant vide pour le désactiver.",
     expected: 'Montant attendu par mois',
@@ -24,6 +29,9 @@ const TXT = {
     since: 'depuis {month}',
   },
   en: {
+    appearance: 'Appearance',
+    themes: { light: 'Light', dark: 'Dark', auto: 'Automatic' } as Record<Theme, string>,
+    themeHint: 'Your choice is saved on this device. Default: light.',
     title: 'Monthly contribution',
     intro: 'Turns on month-by-month tracking in the Overview tab. Leave the amount empty to turn it off.',
     expected: 'Amount expected per month',
@@ -53,9 +61,11 @@ export function Settings({ group, modules, reloadModules, reloadGroups }: { grou
   const tx = TXT[locale]
   const gid = group.group_id
   const g = group.group
+  const isP = group.is_president
   const configured = Boolean(Number(g.expected_amount ?? 0) > 0 && g.start_month)
   const [msg, setMsg] = useState('')
   const [ok, setOk] = useState(false)
+  const [theme, setThemeState] = useState<Theme>(getTheme())
   const [editing, setEditing] = useState(!configured)
   const [expected, setExpected] = useState(g.expected_amount ? String(Number(g.expected_amount)) : '')
   const [initial, setInitial] = useState(g.initial_amount ? String(Number(g.initial_amount)) : '')
@@ -114,12 +124,16 @@ export function Settings({ group, modules, reloadModules, reloadGroups }: { grou
     setEditing(false)
   }
 
+  function chooseTheme(v: Theme) {
+    setTheme(v)
+    setThemeState(v)
+  }
+
   const loc = locale === 'en' ? 'en' : 'fr'
   const startLabel = g.start_month
     ? (() => {
         const [y, m] = g.start_month.split('-').map(Number)
-        const s = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(new Date(y ?? 2000, (m ?? 1) - 1, 1))
-        return s
+        return new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(new Date(y ?? 2000, (m ?? 1) - 1, 1))
       })()
     : ''
   const summary = [
@@ -137,89 +151,105 @@ export function Settings({ group, modules, reloadModules, reloadGroups }: { grou
       {ok && <p className="ok-text">{t('setSaved')}</p>}
 
       <section className="card">
-        <h3>{t('setModules')}</h3>
-        {MODULES.map((m) => (
-          <label key={m} className="check">
-            <input type="checkbox" checked={modules[m]} onChange={(e) => void setModule(m, e.target.checked)} />
-            {t(`mod_${m}`)}
-          </label>
-        ))}
-      </section>
-
-      {configured && !editing ? (
-        <section className="card">
-          <div className="row between">
-            <div>
-              <h3>{tx.title}</h3>
-              <p className="small set-summary-text">{summary}</p>
-            </div>
-            <button type="button" className="btn small" onClick={() => setEditing(true)}>
-              {tx.edit}
+        <h3>{tx.appearance}</h3>
+        <div className="choices" role="radiogroup" aria-label={tx.appearance}>
+          {THEMES.map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={theme === v} className={`choice ${theme === v ? 'on' : ''}`} onClick={() => chooseTheme(v)}>
+              {tx.themes[v]}
             </button>
-          </div>
-        </section>
-      ) : (
-        <form className="card" onSubmit={saveSchedule}>
-          <h3>{tx.title}</h3>
-          <p className="small">{tx.intro}</p>
-          <div className="set-grid">
-            <label className="field">
-              <span>
-                {tx.expected} ({g.currency})
-              </span>
-              <input inputMode="decimal" value={expected} onChange={(e) => setExpected(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>
-                {tx.initial} ({g.currency})
-              </span>
-              <input inputMode="decimal" value={initial} onChange={(e) => setInitial(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>{tx.start}</span>
-              <input type="month" value={start} onChange={(e) => setStart(e.target.value)} />
-            </label>
-          </div>
-          <div className="set-actions">
-            <button className="btn primary">{tx.save}</button>
-            {configured && (
-              <button type="button" className="btn" onClick={cancelEdit}>
-                {tx.cancel}
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-
-      <section className="card">
-        <label className="field">
-          <span>{t('setLoanMode')}</span>
-          <select value={g.loan_decision_mode} onChange={(e) => void setField('loan_decision_mode', e.target.value)}>
-            <option value="vote_tous">{t('mode_vote_tous')}</option>
-            <option value="responsables">{t('mode_responsables')}</option>
-          </select>
-        </label>
+          ))}
+        </div>
+        <p className="small">{tx.themeHint}</p>
       </section>
 
-      <section className="card">
-        <label className="field">
-          <span>{t('setVisibility')}</span>
-          <select value={g.visibility} onChange={(e) => void setField('visibility', e.target.value)}>
-            <option value="tous">{t('vis_tous')}</option>
-            <option value="soi">{t('vis_soi')}</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>{t('setPeriod')}</span>
-          <select value={g.period} onChange={(e) => void setField('period', e.target.value)}>
-            {['jour', 'semaine', 'mois', 'annee'].map((p) => (
-              <option key={p} value={p}>
-                {t(`per_${p}`)}
-              </option>
+      {isP && (
+        <>
+          <section className="card">
+            <h3>{t('setModules')}</h3>
+            {MODULES.map((m) => (
+              <label key={m} className="check">
+                <input type="checkbox" checked={modules[m]} onChange={(e) => void setModule(m, e.target.checked)} />
+                {t(`mod_${m}`)}
+              </label>
             ))}
-          </select>
-        </label>
-      </section>
+          </section>
+
+          {configured && !editing ? (
+            <section className="card">
+              <div className="row between">
+                <div>
+                  <h3>{tx.title}</h3>
+                  <p className="small set-summary-text">{summary}</p>
+                </div>
+                <button type="button" className="btn small" onClick={() => setEditing(true)}>
+                  {tx.edit}
+                </button>
+              </div>
+            </section>
+          ) : (
+            <form className="card" onSubmit={saveSchedule}>
+              <h3>{tx.title}</h3>
+              <p className="small">{tx.intro}</p>
+              <div className="set-grid">
+                <label className="field">
+                  <span>
+                    {tx.expected} ({g.currency})
+                  </span>
+                  <input inputMode="decimal" value={expected} onChange={(e) => setExpected(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>
+                    {tx.initial} ({g.currency})
+                  </span>
+                  <input inputMode="decimal" value={initial} onChange={(e) => setInitial(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>{tx.start}</span>
+                  <input type="month" value={start} onChange={(e) => setStart(e.target.value)} />
+                </label>
+              </div>
+              <div className="set-actions">
+                <button className="btn primary">{tx.save}</button>
+                {configured && (
+                  <button type="button" className="btn" onClick={cancelEdit}>
+                    {tx.cancel}
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
+          <section className="card">
+            <label className="field">
+              <span>{t('setLoanMode')}</span>
+              <select value={g.loan_decision_mode} onChange={(e) => void setField('loan_decision_mode', e.target.value)}>
+                <option value="vote_tous">{t('mode_vote_tous')}</option>
+                <option value="responsables">{t('mode_responsables')}</option>
+              </select>
+            </label>
+          </section>
+
+          <section className="card">
+            <label className="field">
+              <span>{t('setVisibility')}</span>
+              <select value={g.visibility} onChange={(e) => void setField('visibility', e.target.value)}>
+                <option value="tous">{t('vis_tous')}</option>
+                <option value="soi">{t('vis_soi')}</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>{t('setPeriod')}</span>
+              <select value={g.period} onChange={(e) => void setField('period', e.target.value)}>
+                {['jour', 'semaine', 'mois', 'annee'].map((p) => (
+                  <option key={p} value={p}>
+                    {t(`per_${p}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        </>
+      )}
     </div>
   )
 }

@@ -155,7 +155,7 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
   ]
   if (modules.prets) nav.push(['loans', 'nav_loans'])
   nav.push(['members', 'nav_members'])
-  if (active.is_president) nav.push(['settings', 'nav_settings'])
+  nav.push(['settings', 'nav_settings'])
   const current: Tab = nav.some((n) => n[0] === tab) ? tab : 'ann'
 
   let content

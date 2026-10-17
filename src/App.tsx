@@ -5,6 +5,7 @@ import { useI18n } from './i18n'
 import { AuthScreen } from './screens/Auth'
 import { MfaScreen } from './screens/Mfa'
 import { GroupsGate } from './screens/GroupsGate'
+import './lib/theme'
 
 type Gate = 'loading' | 'signed-out' | 'mfa' | 'ready'
 
