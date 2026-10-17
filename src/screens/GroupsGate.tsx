@@ -106,7 +106,7 @@ export function GroupsGate({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     const { data, error: err } = await supabase
       .from('memberships')
-      .select('group_id,user_id,display_name,is_president,can_validate,can_publish,status,groups(id,name,type,currency,period,visibility,loan_decision_mode)')
+      .select('group_id,user_id,display_name,is_president,can_validate,can_publish,status,groups(id,name,type,currency,period,visibility,loan_decision_mode,expected_amount,initial_amount,start_month)')
       .eq('user_id', userId)
       .eq('status', 'active')
     if (err) {

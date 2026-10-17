@@ -8,6 +8,9 @@ export interface GroupInfo {
   period: string
   visibility: string
   loan_decision_mode: string
+  expected_amount?: number | null
+  initial_amount?: number | null
+  start_month?: string | null
 }
 
 export interface Membership {
