@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    // les polices restent des fichiers separes : la CSP (font-src 'self') bloque les polices integrees en data:
+    assetsInlineLimit: (file) => (file.endsWith('.woff2') || file.endsWith('.woff') ? false : undefined),
+  },
   plugins: [
     react(),
     // Application installable (PWA) : icone sur l'ecran d'accueil, plein ecran, demarrage meme avec un reseau faible.
