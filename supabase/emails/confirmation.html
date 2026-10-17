@@ -1,0 +1,30 @@
+<!--
+  E-mail « Confirmez votre adresse » de Cercly.
+  A coller dans Supabase : Authentication > Emails > Templates > « Confirm signup » (onglet Source).
+  Objet conseille : Confirmez votre adresse – Cercly
+  {{ .ConfirmationURL }} est remplace par Supabase par le lien de confirmation (qui ramene sur l'app).
+-->
+<div style="margin:0;padding:24px 12px;background:#eaf3ff;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0f2a47;">
+  <div style="max-width:440px;margin:0 auto;background:#ffffff;border-radius:22px;padding:28px 24px;text-align:center;">
+    <div style="font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px;">Cercly</div>
+    <div style="font-size:14px;color:#5b7391;margin:0 0 24px;">Les cotisations de votre groupe, claires pour tout le monde.</div>
+
+    <div style="font-size:18px;font-weight:700;margin:0 0 10px;">Confirmez votre adresse e-mail</div>
+    <p style="font-size:15px;line-height:1.5;margin:0 0 24px;">
+      Bienvenue&nbsp;! Touchez le bouton ci-dessous pour activer votre compte. Vous serez ramené(e) dans l'application, et vous rejoindrez votre groupe si vous avez reçu une invitation.
+    </p>
+
+    <a href="{{ .ConfirmationURL }}"
+       style="display:inline-block;background:#1e7cf2;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 28px;border-radius:999px;">
+      Activer mon compte
+    </a>
+
+    <p style="font-size:13px;line-height:1.5;color:#5b7391;margin:24px 0 0;">
+      Le bouton ne marche pas&nbsp;? Copiez ce lien dans votre navigateur&nbsp;:<br />
+      <a href="{{ .ConfirmationURL }}" style="color:#1e7cf2;word-break:break-all;">{{ .ConfirmationURL }}</a>
+    </p>
+    <p style="font-size:12px;color:#8fa6c0;margin:20px 0 0;">
+      Vous n'avez pas créé de compte sur Cercly&nbsp;? Ignorez simplement cet e-mail.
+    </p>
+  </div>
+</div>
