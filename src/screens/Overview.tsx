@@ -10,13 +10,19 @@ import '../suivi.css'
 const fr = {
   upToDate: 'À jour',
   lateTotal: 'Retard cumulé',
-  monthly: 'Cotisations mois par mois',
-  countHead: 'Payés',
-  legend: { paid: 'payé', late: 'en retard', pending: 'à valider', due: 'ce mois-ci', future: 'à venir' },
-  setupHint: "Pour activer le suivi mois par mois, indiquez le montant attendu chaque mois dans l'onglet Réglages.",
+  allUpToDate: 'tous à jour',
+  someLate: '{n} en retard',
+  nothingLate: 'rien à rattraper',
+  catchUp: 'à rattraper',
+  monthly: 'Suivi des membres',
   prevYear: 'Année précédente',
   nextYear: 'Année suivante',
   openDetails: 'Voir le détail de {name}',
+  received: 'Reçu',
+  dueToDate: 'Dû à ce jour',
+  monthsPaid: (n: number) => `${n} mois payé${n > 1 ? 's' : ''}`,
+  setupHint: "Pour activer le suivi mois par mois, indiquez le montant attendu chaque mois dans l'onglet Réglages.",
+  legend: { initial: 'apport', paid: 'payé', pending: 'à valider', late: 'en retard', due: 'ce mois-ci', future: 'à venir' },
 }
 
 type Dict = typeof fr
@@ -24,19 +30,31 @@ type Dict = typeof fr
 const en: Dict = {
   upToDate: 'Up to date',
   lateTotal: 'Total overdue',
-  monthly: 'Contributions month by month',
-  countHead: 'Paid',
-  legend: { paid: 'paid', late: 'overdue', pending: 'to review', due: 'this month', future: 'upcoming' },
-  setupHint: 'To turn on month-by-month tracking, set the amount expected each month in the Settings tab.',
+  allUpToDate: 'everyone up to date',
+  someLate: '{n} overdue',
+  nothingLate: 'nothing overdue',
+  catchUp: 'to catch up',
+  monthly: 'Member tracking',
   prevYear: 'Previous year',
   nextYear: 'Next year',
   openDetails: 'See details for {name}',
+  received: 'Received',
+  dueToDate: 'Due to date',
+  monthsPaid: (n: number) => `${n} month${n === 1 ? '' : 's'} paid`,
+  setupHint: 'To turn on month-by-month tracking, set the amount expected each month in the Settings tab.',
+  legend: { initial: 'initial', paid: 'paid', pending: 'to review', late: 'overdue', due: 'this month', future: 'upcoming' },
 }
 
 const TXT = { fr, en }
 const MONTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
-export function Overview({ group }: { group: MyGroup }) {
+interface Props {
+  group: MyGroup
+  onGo?: (k: 'cot' | 'loans') => void
+  loansEnabled?: boolean
+}
+
+export function Overview({ group, onGo, loansEnabled }: Props) {
   const { t, locale } = useI18n()
   const tx = TXT[locale]
   const loc = locale === 'en' ? 'en' : 'fr'
@@ -96,16 +114,17 @@ export function Overview({ group }: { group: MyGroup }) {
   const letter = (m: number) => new Intl.DateTimeFormat(loc, { month: 'narrow' }).format(new Date(2000, m, 1)).toUpperCase()
 
   const curIdx = plan ? monthIndex(plan, now.getFullYear(), now.getMonth()) : 0
+  const dueC = plan && curIdx >= 0 ? plan.initial + plan.expected * curIdx : 0
   let upToDate = 0
   let lateTotal = 0
   if (plan) {
-    const due = curIdx >= 0 ? plan.initial + plan.expected * curIdx : 0
     for (const r of rows) {
-      const late = Math.max(0, due - Math.round(r.validated * 100))
+      const late = Math.max(0, dueC - Math.round(r.validated * 100))
       if (late === 0) upToDate += 1
       lateTotal += late
     }
   }
+  const lateCount = rows.length - upToDate
 
   function openDetails(id: string) {
     setSelected(id)
@@ -114,30 +133,43 @@ export function Overview({ group }: { group: MyGroup }) {
 
   return (
     <div className="stack">
-      <h2>{t('ovTitle')}</h2>
       {msg && <p className="msg">{msg}</p>}
-      <div className="grid2">
-        <div className="card">
-          <small>{t('ovValidated')}</small>
-          <div className="big ok-text">{money(validated, cur, locale)}</div>
-        </div>
-        <div className="card">
-          <small>{t('ovPending')}</small>
-          <div className="big warn-text">{money(pending, cur, locale)}</div>
-        </div>
-      </div>
+
+      <section className="hero">
+        <span className="hero-label">{t('ovValidated')}</span>
+        <div className="hero-amount">{money(validated, cur, locale)}</div>
+        <span className="hero-sub">
+          {t('ovPending')} : {money(pending, cur, locale)}
+        </span>
+        {onGo && (
+          <div className="hero-actions">
+            <button type="button" className="pill pill-light" onClick={() => onGo('cot')}>
+              {t('nav_cot')}
+            </button>
+            {loansEnabled && (
+              <button type="button" className="pill pill-glass" onClick={() => onGo('loans')}>
+                {t('nav_loans')}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
 
       {plan && (
         <div className="grid2">
-          <div className="card">
+          <div className="card tile">
             <small>{tx.upToDate}</small>
-            <div className="big ok-text">
+            <div className="tile-value">
               {upToDate}/{rows.length}
             </div>
+            <span className={`chip ${lateCount > 0 ? 'chip-bad' : 'chip-ok'}`}>
+              {lateCount > 0 ? tx.someLate.replace('{n}', String(lateCount)) : tx.allUpToDate}
+            </span>
           </div>
-          <div className="card">
+          <div className="card tile">
             <small>{tx.lateTotal}</small>
-            <div className="big warn-text">{fmt(lateTotal)}</div>
+            <div className="tile-value">{fmt(lateTotal)}</div>
+            <span className={`chip ${lateTotal > 0 ? 'chip-warn' : 'chip-ok'}`}>{lateTotal > 0 ? tx.catchUp : tx.nothingLate}</span>
           </div>
         </div>
       )}
@@ -157,54 +189,80 @@ export function Overview({ group }: { group: MyGroup }) {
                 </button>
               </div>
             </div>
-            <div className="ov-head" aria-hidden="true">
-              <span className="ov-name" />
-              <span className="ov-sq">
-                {MONTHS.map((m) => (
-                  <i key={m}>{letter(m)}</i>
-                ))}
-              </span>
-              <span className="ov-count">{tx.countHead}</span>
+            <div className="seg-head" aria-hidden="true">
+              {plan.initial > 0 && <i />}
+              {MONTHS.map((m) => (
+                <i key={m}>{letter(m)}</i>
+              ))}
             </div>
             {rows.map((r) => {
               const cov = cover(plan, r.validated, r.pending)
+              const valC = Math.round(r.validated * 100)
+              const pendC = Math.round(r.pending * 100)
+              const initialCls =
+                plan.initial === 0
+                  ? null
+                  : valC >= plan.initial
+                    ? 'initial'
+                    : valC + pendC >= plan.initial
+                      ? 'pending'
+                      : curIdx >= 0
+                        ? 'late'
+                        : 'future'
               return (
                 <button
                   key={r.user_id}
                   type="button"
-                  className="ov-row"
+                  className="seg-row"
                   aria-label={tx.openDetails.replace('{name}', r.display_name)}
                   onClick={() => openDetails(r.user_id)}
                 >
-                  <span className="ov-name">{r.display_name}</span>
-                  <span className="ov-sq">
+                  <span className="seg-top">
+                    <strong>{r.display_name}</strong>
+                    <span className="seg-count">{tx.monthsPaid(cov.full)}</span>
+                  </span>
+                  <span className="seg" aria-hidden="true">
+                    {initialCls && <i className={`seg-${initialCls}`} />}
                     {MONTHS.map((m) => (
-                      <i key={m} className={`ov-${cellOf(cov, monthIndex(plan, year, m), curIdx)}`} />
+                      <i key={m} className={`seg-${cellOf(cov, monthIndex(plan, year, m), curIdx)}`} />
                     ))}
                   </span>
-                  <span className="ov-count">{cov.full}</span>
+                  <span className="seg-sub">
+                    <span>
+                      {tx.received} {fmt(valC)}
+                    </span>
+                    <span>
+                      {tx.dueToDate} {fmt(dueC)}
+                    </span>
+                  </span>
                 </button>
               )
             })}
-            <div className="ov-legend">
+            <div className="seg-legend">
+              {plan.initial > 0 && (
+                <span>
+                  <i className="seg-initial" />
+                  {tx.legend.initial}
+                </span>
+              )}
               <span>
-                <i className="ov-paid" />
+                <i className="seg-paid" />
                 {tx.legend.paid}
               </span>
               <span>
-                <i className="ov-late" />
-                {tx.legend.late}
-              </span>
-              <span>
-                <i className="ov-pending" />
+                <i className="seg-pending" />
                 {tx.legend.pending}
               </span>
               <span>
-                <i className="ov-due" />
+                <i className="seg-late" />
+                {tx.legend.late}
+              </span>
+              <span>
+                <i className="seg-due" />
                 {tx.legend.due}
               </span>
               <span>
-                <i className="ov-future" />
+                <i className="seg-future" />
                 {tx.legend.future}
               </span>
             </div>

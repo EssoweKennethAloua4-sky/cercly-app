@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupModules, Locale, Membership, ModuleName, MyGroup } from '../types'
@@ -16,6 +16,54 @@ import { Settings } from './Settings'
 type Tab = 'ann' | 'cot' | 'overview' | 'loans' | 'members' | 'settings'
 
 const NO_MODULES: GroupModules = { annonces: true, cotisations: true, rappels: false, prets: false }
+
+// Icones dessinees en SVG directement dans le code : aucun fichier externe.
+const ICONS: Record<Tab, ReactNode> = {
+  ann: (
+    <>
+      <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" />
+      <path d="M15 9a4 4 0 0 1 0 6" />
+      <path d="M18 6a8 8 0 0 1 0 12" />
+    </>
+  ),
+  cot: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>
+  ),
+  overview: <path d="M5 20V10M12 20V4M19 20v-7" />,
+  loans: (
+    <>
+      <ellipse cx="12" cy="6" rx="7" ry="3" />
+      <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+      <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+    </>
+  ),
+  members: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+      <path d="M16 4.5a3.5 3.5 0 0 1 0 7" />
+      <path d="M18 14.3c2.2.6 3.5 2.3 3.5 5.7" />
+    </>
+  ),
+  settings: (
+    <>
+      <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="8" cy="17" r="2" />
+    </>
+  ),
+}
+
+function Icon({ tab }: { tab: Tab }) {
+  return (
+    <svg className="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {ICONS[tab]}
+    </svg>
+  )
+}
 
 export function Shell({ userId, groups, reload }: { userId: string; groups: MyGroup[]; reload: () => Promise<void> }) {
   const { t, setLocale } = useI18n()
@@ -92,6 +140,12 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
     setBell(false)
   }
 
+  const go = (k: Tab) => {
+    setTab(k)
+    setCreating(false)
+    setBell(false)
+  }
+
   const role = active.is_president ? 'role_president' : active.can_validate ? 'role_validator' : active.can_publish ? 'role_publisher' : 'role_member'
 
   const nav: Array<[Tab, string]> = [
@@ -116,17 +170,11 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
     )
   else if (current === 'ann') content = <Announcements group={active} members={members} userId={userId} />
   else if (current === 'cot') content = <Contributions group={active} members={members} userId={userId} />
-  else if (current === 'overview') content = <Overview group={active} />
+  else if (current === 'overview') content = <Overview group={active} loansEnabled={modules.prets} onGo={(k) => go(k)} />
   else if (current === 'loans') content = <Loans group={active} members={members} userId={userId} />
   else if (current === 'settings')
     content = <Settings group={active} modules={modules} reloadModules={loadModules} reloadGroups={reload} />
   else content = <Members group={active} members={members} userId={userId} reloadMembers={loadMembers} reloadGroups={reload} />
-
-  const go = (k: Tab) => {
-    setTab(k)
-    setCreating(false)
-    setBell(false)
-  }
 
   return (
     <div className="app">
@@ -137,7 +185,8 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
         <nav aria-label="Navigation">
           {nav.map(([k, label]) => (
             <button key={k} className={`nav ${current === k && !creating ? 'on' : ''}`} aria-current={current === k && !creating ? 'page' : undefined} onClick={() => go(k)}>
-              {t(label)}
+              <Icon tab={k} />
+              <span>{t(label)}</span>
             </button>
           ))}
         </nav>
@@ -175,8 +224,9 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
 
       <nav className="bn" aria-label="Navigation">
         {nav.map(([k, label]) => (
-          <button key={k} className={current === k && !creating ? 'on' : ''} aria-current={current === k && !creating ? 'page' : undefined} onClick={() => go(k)}>
-            {t(label)}
+          <button key={k} className={current === k && !creating ? 'on' : ''} aria-label={t(label)} aria-current={current === k && !creating ? 'page' : undefined} onClick={() => go(k)}>
+            <Icon tab={k} />
+            <span>{t(label)}</span>
           </button>
         ))}
       </nav>
