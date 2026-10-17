@@ -58,15 +58,21 @@ export function Icon({ name, className = 'ico' }: { name: IconName; className?: 
 }
 
 // Ecran vide : une icone, une phrase, et ce que la personne peut faire ensuite.
-export function Empty({ icon, title, text, children }: { icon: IconName; title: string; text?: string; children?: ReactNode }) {
-  return (
-    <div className="card empty">
-      <span className="empty-ico">
-        <Icon name={icon} />
-      </span>
+// compact : version en ligne, pour les sous-listes (ex. « A traiter » dans Cotiser).
+export function Empty({ icon, title, text, compact, children }: { icon: IconName; title: string; text?: string; compact?: boolean; children?: ReactNode }) {
+  const body = (
+    <>
       <strong>{title}</strong>
       {text && <p className="small">{text}</p>}
       {children}
+    </>
+  )
+  return (
+    <div className={`card empty ${compact ? 'compact' : ''}`}>
+      <span className="empty-ico">
+        <Icon name={icon} />
+      </span>
+      {compact ? <div>{body}</div> : body}
     </div>
   )
 }

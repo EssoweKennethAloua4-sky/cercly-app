@@ -186,3 +186,31 @@ progress { width: 100%; height: 8px; accent-color: var(--brand); }
 .empty-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 99px; background: var(--brand-soft); color: var(--brand); margin-bottom: 4px; }
 .empty-ico .ico { width: 26px; height: 26px; }
 .empty .small { max-width: 340px; margin: 0; }
+
+/* conseil (pas une erreur) : orange doux */
+.hint-warn { color: var(--warn); background: var(--warn-soft); border-radius: 14px; padding: 10px 12px; margin: 0; font-size: 14px; }
+
+/* interrupteur : la case a cocher dessinee comme un bouton on/off, texte a gauche */
+.switch { justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 15px; cursor: pointer; }
+.switch input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: 99px; background: var(--line); cursor: pointer; transition: background 0.15s; }
+.switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
+.switch input:checked { background: var(--brand); }
+.switch input:checked::after { transform: translateX(18px); }
+.switch input:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (pointer: coarse) { .check.switch input { width: 44px; height: 26px; } }
+
+/* choix de fichiers : bouton maison + noms des fichiers choisis */
+.picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 14px; background: var(--bg2); }
+.picker .btn.file { align-self: center; }
+.picker .small { margin: 0; overflow-wrap: anywhere; }
+
+/* ecran vide compact, a l'interieur d'une section */
+.empty.compact { flex-direction: row; text-align: left; padding: 14px 16px; gap: 12px; }
+.empty.compact .empty-ico { width: 40px; height: 40px; margin: 0; flex: none; }
+.empty.compact .empty-ico .ico { width: 20px; height: 20px; }
+.empty.compact > div { display: flex; flex-direction: column; gap: 2px; }
+
+/* reglages regroupes dans une meme carte */
+.set-block { display: flex; flex-direction: column; gap: 12px; }
+.set-block + .set-block { border-top: 1px solid var(--line); padding-top: 12px; }
+.panel > .row { flex-wrap: wrap; gap: 4px 12px; }

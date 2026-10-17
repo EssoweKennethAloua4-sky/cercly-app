@@ -24,6 +24,7 @@ const TXT = {
     expected: 'Montant attendu par mois',
     initial: 'Apport initial (facultatif)',
     start: 'Premier mois du suivi',
+    chooseMonth: 'Choisir un mois',
     save: 'Enregistrer',
     edit: 'Modifier',
     cancel: 'Annuler',
@@ -46,6 +47,7 @@ const TXT = {
     expected: 'Amount expected per month',
     initial: 'Initial contribution (optional)',
     start: 'First month of tracking',
+    chooseMonth: 'Choose a month',
     save: 'Save',
     edit: 'Edit',
     cancel: 'Cancel',
@@ -59,6 +61,26 @@ const TXT = {
 
 function fill(s: string, v: Record<string, string>): string {
   return s.replace(/\{(\w+)\}/g, (_, k: string) => v[k] ?? '')
+}
+
+// Mois proposes pour le debut du suivi : 2 ans en arriere, 1 an en avant (plus la valeur deja enregistree).
+// Une liste plutot qu'un <input type="month">, qui s'affiche « ---------- ---- » quand il est vide.
+function monthOptions(current: string, loc: string): Array<[string, string]> {
+  const now = new Date()
+  const fmt = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' })
+  const out: Array<[string, string]> = []
+  for (let i = -24; i <= 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = fmt.format(d)
+    out.push([v, label.charAt(0).toUpperCase() + label.slice(1)])
+  }
+  if (current && !out.some(([v]) => v === current)) {
+    const [y, m] = current.split('-').map(Number)
+    const label = fmt.format(new Date(y ?? 2000, (m ?? 1) - 1, 1))
+    out.unshift([current, label.charAt(0).toUpperCase() + label.slice(1)])
+  }
+  return out
 }
 
 function toNumber(s: string): number {
@@ -205,9 +227,9 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
           <section className="card">
             <h3>{t('setModules')}</h3>
             {MODULES.map((m) => (
-              <label key={m} className="check">
-                <input type="checkbox" checked={modules[m]} onChange={(e) => void setModule(m, e.target.checked)} />
+              <label key={m} className="check switch">
                 {t(`mod_${m}`)}
+                <input type="checkbox" role="switch" checked={modules[m]} onChange={(e) => void setModule(m, e.target.checked)} />
               </label>
             ))}
           </section>
@@ -243,7 +265,14 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
                 </label>
                 <label className="field">
                   <span>{tx.start}</span>
-                  <input type="month" value={start} onChange={(e) => setStart(e.target.value)} />
+                  <select value={start} onChange={(e) => setStart(e.target.value)}>
+                    <option value="">{tx.chooseMonth}</option>
+                    {monthOptions(start, loc).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div className="set-actions">
@@ -258,6 +287,7 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
           )}
 
           <section className="card">
+            <h3>{t('setHow')}</h3>
             <label className="field">
               <span>{t('setLoanMode')}</span>
               <select value={g.loan_decision_mode} onChange={(e) => void setField('loan_decision_mode', e.target.value)}>
@@ -265,9 +295,6 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
                 <option value="responsables">{t('mode_responsables')}</option>
               </select>
             </label>
-          </section>
-
-          <section className="card">
             <label className="field">
               <span>{t('setVisibility')}</span>
               <select value={g.visibility} onChange={(e) => void setField('visibility', e.target.value)}>

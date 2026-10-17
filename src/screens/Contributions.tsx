@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { supabase } from '../supabase'
+import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Contribution, ContributionStatus, Membership, MyGroup } from '../types'
 import { day, errMsg, money } from '../lib/format'
@@ -13,6 +14,7 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const cur = group.group.currency
   const canReview = group.can_validate || group.is_president
   const [list, setList] = useState<Contribution[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [forId, setForId] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -33,7 +35,10 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
       .order('created_at', { ascending: false })
       .limit(200)
     if (error) setMsg(errMsg(error))
-    else setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount) })))
+    else {
+      setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount) })))
+      setLoaded(true)
+    }
   }, [gid])
 
   useEffect(() => {
@@ -206,10 +211,17 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
             <input type="date" required value={date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} />
           </label>
         </div>
-        <label className="field">
+        <div className="field">
           <span>{t('cotProofs')}</span>
-          <input key={fileKey} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={pick} />
-        </label>
+          {/* bouton maison : le champ du navigateur affiche « Sélect. fichiers » dans la langue du systeme */}
+          <div className="picker">
+            <label className="btn small file">
+              {t('cotPick')}
+              <input key={fileKey} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={pick} />
+            </label>
+            <p className="small">{files.length === 0 ? t('cotNoFile') : files.map((f) => f.name).join(', ')}</p>
+          </div>
+        </div>
         <label className="field">
           <span>{t('cotNote')}</span>
           <input maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -224,14 +236,14 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
       {canReview && (
         <section className="stack">
           <h2>{t('cotToReview')}</h2>
-          {toReview.length === 0 && <p className="card small">{t('cotNoneReview')}</p>}
+          {loaded && toReview.length === 0 && <Empty compact icon="cot" title={t('cotNoneReview')} text={t('cotNoneReviewHint')} />}
           {toReview.map((c) => card(c, true))}
         </section>
       )}
 
       <section className="stack">
         <h2>{t('cotMine')}</h2>
-        {mine.length === 0 && <p className="card small">{t('cotNoneMine')}</p>}
+        {loaded && mine.length === 0 && <Empty compact icon="cot" title={t('cotNoneMine')} text={t('cotNoneMineHint')} />}
         {mine.map((c) => card(c, false))}
       </section>
     </div>

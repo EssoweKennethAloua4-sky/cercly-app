@@ -70,7 +70,7 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
     <div className="stack">
       <h2>{t('memTitle')}</h2>
       {isP && <p className="small">{t('memValidatorsHint')}</p>}
-      {isP && validators < 2 && <p className="msg">{t('memWarnOneValidator')}</p>}
+      {isP && validators < 2 && <p className="hint-warn">{t('memWarnOneValidator')}</p>}
       {msg && <p className="msg">{msg}</p>}
 
       {isP && (
@@ -106,13 +106,13 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
           </div>
           {isP && !m.is_president && (
             <>
-              <label className="check">
-                <input type="checkbox" checked={m.can_validate} onChange={() => void toggle(m, 'can_validate')} />
+              <label className="check switch">
                 {t('memCanValidate')}
+                <input type="checkbox" role="switch" checked={m.can_validate} onChange={() => void toggle(m, 'can_validate')} />
               </label>
-              <label className="check">
-                <input type="checkbox" checked={m.can_publish} onChange={() => void toggle(m, 'can_publish')} />
+              <label className="check switch">
                 {t('memCanPublish')}
+                <input type="checkbox" role="switch" checked={m.can_publish} onChange={() => void toggle(m, 'can_publish')} />
               </label>
               <div className="row wrap">
                 <button className="btn small" onClick={() => void transfer(m)}>
