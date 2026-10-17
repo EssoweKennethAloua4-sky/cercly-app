@@ -1,0 +1,188 @@
+.ov-head,
+.ov-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ov-row {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.ov-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-sq {
+  --s: 12px;
+  --g: 3px;
+  display: flex;
+  gap: var(--g);
+  flex: none;
+}
+
+.ov-sq i {
+  width: var(--s);
+  height: var(--s);
+  border-radius: 3px;
+  display: block;
+  box-sizing: border-box;
+  font-style: normal;
+  font-size: 10px;
+  line-height: var(--s);
+  text-align: center;
+}
+
+.ov-head .ov-sq i {
+  opacity: 0.6;
+}
+
+.ov-count {
+  width: 40px;
+  text-align: right;
+  flex: none;
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+.ov-paid {
+  background: #2eb872;
+}
+
+.ov-late {
+  background: #e5484d;
+}
+
+.ov-pending {
+  background: #f5a524;
+}
+
+.ov-due {
+  border: 1.5px solid #06b6d4;
+}
+
+.ov-future {
+  border: 1px solid currentColor;
+  opacity: 0.3;
+}
+
+.ov-before {
+  background: currentColor;
+  opacity: 0.12;
+}
+
+.ov-year {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-detail {
+  padding: 4px 0 12px;
+}
+
+.ov-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.ov-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.ov-st-paid {
+  color: #2eb872;
+}
+
+.ov-st-late {
+  color: #e5484d;
+}
+
+.ov-st-pending {
+  color: #f5a524;
+}
+
+.ov-st-due {
+  color: #06b6d4;
+}
+
+.ov-st-future {
+  opacity: 0.6;
+}
+
+.ov-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 12px;
+}
+
+.ov-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ov-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  box-sizing: border-box;
+}
+
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.set-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.set-summary-text {
+  margin: 4px 0 0;
+}
+
+@media (min-width: 700px) {
+  .ov-sq {
+    --s: 20px;
+    --g: 6px;
+  }
+
+  .ov-sq i {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ov-sq {
+    --s: 10px;
+    --g: 2px;
+  }
+}

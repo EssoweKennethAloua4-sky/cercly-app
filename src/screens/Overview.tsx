@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupInfo, MemberTotal, MyGroup } from '../types'
 import { errMsg, money } from '../lib/format'
+import '../suivi.css'
 
 type Cell = 'paid' | 'pending' | 'late' | 'due' | 'future' | 'before'
 
@@ -60,34 +61,6 @@ const en: Dict = {
 
 const TXT = { fr, en }
 
-const CSS = `
-.ov-head,.ov-row{display:flex;align-items:center;gap:8px;width:100%}
-.ov-row{background:none;border:0;border-top:1px solid rgba(128,128,128,.18);color:inherit;font:inherit;text-align:left;padding:8px 0;cursor:pointer}
-.ov-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ov-sq{display:flex;gap:3px;flex:none}
-.ov-sq i{width:12px;height:12px;border-radius:3px;display:block;font-style:normal;font-size:10px;line-height:12px;text-align:center}
-.ov-head .ov-sq i{opacity:.6}
-.ov-count{width:36px;text-align:right;flex:none;opacity:.75;font-size:13px}
-.c-paid{background:#2eb872}
-.c-late{background:#e5484d}
-.c-pending{background:#f5a524}
-.c-due{border:1.5px solid #06b6d4}
-.c-future{border:1px solid currentColor;opacity:.3}
-.c-before{background:currentColor;opacity:.12}
-.ov-year{display:flex;align-items:center;gap:8px}
-.ov-detail{padding:4px 0 10px}
-.ov-list{list-style:none;margin:6px 0 0;padding:0}
-.ov-list li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:13px}
-.st-paid{color:#2eb872}
-.st-late{color:#e5484d}
-.st-pending{color:#f5a524}
-.st-due{color:#06b6d4}
-.st-future{opacity:.6}
-.ov-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;opacity:.85;margin-top:10px}
-.ov-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
-@media (max-width:360px){.ov-sq{gap:2px}.ov-sq i{width:10px}}
-`
-
 const MONTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 function fill(s: string, v: Record<string, string | number>): string {
@@ -117,7 +90,6 @@ function monthIndex(plan: Plan, y: number, m: number): number {
 interface Cover {
   full: number
   allFull: number
-  validated: number
   monthsCash: number
   initialMissing: number
 }
@@ -130,7 +102,6 @@ function cover(plan: Plan, validated: number, pending: number): Cover {
   return {
     full: Math.floor(monthsCash / plan.expected),
     allFull: Math.floor(Math.max(0, v + p - plan.initial) / plan.expected),
-    validated: v,
     monthsCash,
     initialMissing: Math.max(0, plan.initial - v),
   }
@@ -200,7 +171,6 @@ export function Overview({ group }: { group: MyGroup }) {
 
   return (
     <div className="stack">
-      <style>{CSS}</style>
       <h2>{t('ovTitle')}</h2>
       {msg && <p className="msg">{msg}</p>}
       <div className="grid2">
@@ -261,7 +231,7 @@ export function Overview({ group }: { group: MyGroup }) {
                   <span className="ov-name">{r.display_name}</span>
                   <span className="ov-sq">
                     {MONTHS.map((m) => (
-                      <i key={m} className={`c-${cellOf(cov, monthIndex(plan, year, m), curIdx)}`} />
+                      <i key={m} className={`ov-${cellOf(cov, monthIndex(plan, year, m), curIdx)}`} />
                     ))}
                   </span>
                   <span className="ov-count">{cov.full}</span>
@@ -286,7 +256,7 @@ export function Overview({ group }: { group: MyGroup }) {
                         return (
                           <li key={m}>
                             <span>{monthName(year, m)}</span>
-                            <span className={`st-${cell}`}>
+                            <span className={`ov-st-${cell}`}>
                               {tx.st[cell]}
                               {partial > 0 && ` · ${fill(tx.partial, { paid: fmt(partial), due: fmt(plan.expected) })}`}
                             </span>
@@ -301,23 +271,23 @@ export function Overview({ group }: { group: MyGroup }) {
           })}
           <div className="ov-legend">
             <span>
-              <i className="c-paid" />
+              <i className="ov-paid" />
               {tx.legend.paid}
             </span>
             <span>
-              <i className="c-late" />
+              <i className="ov-late" />
               {tx.legend.late}
             </span>
             <span>
-              <i className="c-pending" />
+              <i className="ov-pending" />
               {tx.legend.pending}
             </span>
             <span>
-              <i className="c-due" />
+              <i className="ov-due" />
               {tx.legend.due}
             </span>
             <span>
-              <i className="c-future" />
+              <i className="ov-future" />
               {tx.legend.future}
             </span>
           </div>
