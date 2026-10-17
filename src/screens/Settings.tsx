@@ -5,6 +5,7 @@ import type { GroupModules, ModuleName, MyGroup } from '../types'
 import { errMsg, money } from '../lib/format'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { LangSwitch } from '../components/LangSwitch'
+import { useInstall } from '../lib/install'
 import '../suivi.css'
 
 const MODULES: ModuleName[] = ['annonces', 'cotisations', 'rappels', 'prets']
@@ -13,6 +14,11 @@ const THEMES: Theme[] = ['light', 'dark', 'auto']
 const TXT = {
   fr: {
     account: 'Mon compte',
+    app: 'Application',
+    appPrompt: "Installez Cercly sur cet appareil : une icône sur l'écran d'accueil, en plein écran, comme une vraie application.",
+    appInstall: "Installer l'application",
+    appIos: "Pour installer Cercly sur votre iPhone : dans Safari, touchez le bouton Partager (carré avec une flèche), puis « Sur l'écran d'accueil ».",
+    appManual: "Pour installer Cercly : ouvrez le menu de votre navigateur, puis « Installer l'application » ou « Ajouter à l'écran d'accueil ».",
     groupSection: 'Groupe {name}',
     language: 'Langue',
     newGroupHint: 'Créez un autre groupe dont vous serez président.',
@@ -36,6 +42,11 @@ const TXT = {
   },
   en: {
     account: 'My account',
+    app: 'App',
+    appPrompt: 'Install Cercly on this device: an icon on your home screen, full screen, like a real app.',
+    appInstall: 'Install the app',
+    appIos: 'To install Cercly on your iPhone: in Safari, tap the Share button (square with an arrow), then "Add to Home Screen".',
+    appManual: 'To install Cercly: open your browser menu, then "Install app" or "Add to Home screen".',
     groupSection: 'Group {name}',
     language: 'Language',
     newGroupHint: 'Create another group where you will be president.',
@@ -106,6 +117,7 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
   const [msg, setMsg] = useState('')
   const [ok, setOk] = useState(false)
   const [theme, setThemeState] = useState<Theme>(getTheme())
+  const install = useInstall()
   const [editing, setEditing] = useState(!configured)
   const [expected, setExpected] = useState(g.expected_amount ? String(Number(g.expected_amount)) : '')
   const [initial, setInitial] = useState(g.initial_amount ? String(Number(g.initial_amount)) : '')
@@ -203,6 +215,22 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
         </div>
         <p className="small">{tx.themeHint}</p>
       </section>
+
+      {install.state !== 'installed' && (
+        <section className="card">
+          <h3>{tx.app}</h3>
+          {install.state === 'prompt' ? (
+            <>
+              <p className="small">{tx.appPrompt}</p>
+              <button type="button" className="btn primary set-signout" onClick={() => void install.install()}>
+                {tx.appInstall}
+              </button>
+            </>
+          ) : (
+            <p className="small">{install.state === 'ios' ? tx.appIos : tx.appManual}</p>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="row between">

@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { I18nProvider } from './i18n'
 import { PublicLoan } from './screens/PublicLoan'
+// Police embarquee dans l'app (pas de Google Fonts : bloque par la CSP et indisponible hors ligne).
+import '@fontsource-variable/plus-jakarta-sans'
+import './lib/install'
 import './styles.css'
 
 const params = new URLSearchParams(window.location.search)

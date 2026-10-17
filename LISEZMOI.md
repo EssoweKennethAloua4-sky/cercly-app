@@ -17,13 +17,14 @@ Interface React + TypeScript branchée sur Supabase. Les règles de sécurité s
 11. Prêts par formulaire : chaque membre a son lien personnel (fixe, régénérable, en pause possible) ; l'emprunteur remplit lui-même la demande sur une page publique, sans compte, et indique le nom de son garant.
 12. Écran Prêts : confirmation du garant, vote de 7 jours, quorum, décision du président, remboursement, effacement des informations de l'emprunteur, demandes écartées.
 13. Réglages du groupe (président) : modules, qui décide des prêts, visibilité des cotisations, périodicité.
+14. Application installable (PWA) : icône sur l'écran d'accueil, plein écran, bouton « Installer l'application » dans Réglages. Les icônes sont générées depuis `public/icon.svg` avec `npm run icons`.
 
 ## Pas encore fait
 
 1. Versement et remboursements de prêts avec justificatifs, intérêts.
 2. Rappels et graphiques par jour / semaine / mois / année.
 3. Envoi automatique des e-mails d'invitation et notifications sur le téléphone (aujourd'hui : le président copie le lien d'invitation et l'envoie lui-même).
-4. Version installable (PWA), puis Google Play et App Store.
+4. Publication sur Google Play et l'App Store (la version installable PWA est faite).
 5. Test anti-robot sur le formulaire public, tests automatiques et test d'intrusion.
 
 ## Mise en route
@@ -60,7 +61,8 @@ Interface React + TypeScript branchée sur Supabase. Les règles de sécurité s
 1. Envoyez le projet sur GitHub (le fichier `.env` est ignoré).
 2. Sur Vercel, importez le dépôt et ajoutez les deux variables `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
 3. `vercel.json` ajoute les en-têtes de sécurité (CSP, anti-clickjacking, HTTPS strict). Vérifiez après la mise en ligne que l'application fonctionne avec cette CSP, car elle n'a pas pu être testée en conditions réelles.
-4. Ajoutez l'adresse du site dans les « Redirect URLs » de Supabase.
+4. Dans Supabase (Authentication > URL Configuration) : mettez l'adresse du site comme « Site URL » et ajoutez-la aux « Redirect URLs ».
+5. Sur le téléphone, ouvrez l'adresse du site : Android propose « Installer l'application » ; sur iPhone, Safari > Partager > « Sur l'écran d'accueil ».
 
 ## Points de sécurité à connaître
 
