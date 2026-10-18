@@ -9,7 +9,10 @@ import '../suivi.css'
 const fr = {
   title: 'Détails des cotisations',
   hint: 'Touchez une personne pour voir tout le détail.',
-  received: 'Reçu',
+  received: 'Cotisé',
+  feesLine: "+ {amount} de frais d'envoi (non comptés)",
+  feesTotal: "Frais d'envoi (non comptés)",
+  paySplit: 'envoyé {sent}, dont {fee} de frais',
   dueToDate: 'Dû à ce jour',
   upToDate: 'À jour',
   late: 'Retard {amount}',
@@ -59,7 +62,10 @@ type Dict = typeof fr
 const en: Dict = {
   title: 'Contribution details',
   hint: 'Tap a person to see every detail.',
-  received: 'Received',
+  received: 'Contributed',
+  feesLine: '+ {amount} of transfer fees (not counted)',
+  feesTotal: 'Transfer fees (not counted)',
+  paySplit: 'sent {sent}, including {fee} of fees',
   dueToDate: 'Due to date',
   upToDate: 'Up to date',
   late: 'Overdue {amount}',
@@ -133,7 +139,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
     void (async () => {
       const { data, error } = await supabase
         .from('contributions')
-        .select('id,payer_id,for_user_id,amount,paid_on,note,status,reject_reason,created_at')
+        .select('id,payer_id,for_user_id,amount,fee,paid_on,note,status,reject_reason,created_at')
         .eq('group_id', group.group_id)
         .eq('for_user_id', selected)
         .order('paid_on', { ascending: true })
@@ -153,6 +159,9 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
   }, [selected, tick, group.group_id])
 
   const fmt = (cents: number) => money(cents / 100, cur, locale)
+  // cotisation d'un paiement = montant envoye - frais d'envoi (en centimes)
+  const netC = (c: Contribution) => Math.round((Number(c.amount) - Number(c.fee ?? 0)) * 100)
+  const feeC = (c: Contribution) => Math.round(Number(c.fee ?? 0) * 100)
   const monthName = (y: number, m: number) => {
     const s = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(new Date(y, m, 1))
     return s.charAt(0).toUpperCase() + s.slice(1)
@@ -169,7 +178,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
 
   const validated = useMemo(() => (items ?? []).filter((c) => c.status === 'validee'), [items])
   const pieces = useMemo(
-    () => allocate(plan, validated.map((c) => Math.round(Number(c.amount) * 100))),
+    () => allocate(plan, validated.map(netC)),
     [plan, validated],
   )
   const piecesById = useMemo(() => {
@@ -204,6 +213,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
                 <span className="dt-sub">
                   {tx.received} {fmt(v)} · {tx.dueToDate} {fmt(due)}
                 </span>
+                {(r.fees ?? 0) > 0 && <span className="dt-sub">{fill(tx.feesLine, { amount: fmt(Math.round((r.fees ?? 0) * 100)) })}</span>}
               </span>
               <span className={`tag ${late > 0 ? 'bad' : 'ok'}`}>
                 {late > 0 ? fill(tx.late, { amount: fmt(late) }) : ahead > 0 ? fill(tx.ahead, { amount: fmt(ahead) }) : tx.upToDate}
@@ -252,6 +262,12 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
             <span className="dt-sub">{tx.dueToDate}</span>
             <strong>{fmt(due)}</strong>
           </div>
+          {(sel.fees ?? 0) > 0 && (
+            <div>
+              <span className="dt-sub">{tx.feesTotal}</span>
+              <strong>{fmt(Math.round((sel.fees ?? 0) * 100))}</strong>
+            </div>
+          )}
           <div>
             <span className="dt-sub">{tx.situation}</span>
             <strong className={late > 0 ? 'dt-bad' : 'dt-good'}>
@@ -278,11 +294,14 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
             <div key={c.id} className="dt-pay">
               <div className="dt-pay-head">
                 <span>
-                  <strong>{fmt(Math.round(Number(c.amount) * 100))}</strong>
+                  <strong>{fmt(netC(c))}</strong>
                   <span className="dt-sub"> · {fmtDate(c.paid_on)}</span>
                 </span>
                 <span className={`tag ${statusClass}`}>{tx.status[c.status] ?? c.status}</span>
               </div>
+              {feeC(c) > 0 && (
+                <p className="small">{fill(tx.paySplit, { sent: fmt(Math.round(Number(c.amount) * 100)), fee: fmt(feeC(c)) })}</p>
+              )}
               {c.payer_id !== c.for_user_id && (
                 <p className="small">{fill(tx.paidBy, { name: names[c.payer_id] ?? tx.someone })}</p>
               )}

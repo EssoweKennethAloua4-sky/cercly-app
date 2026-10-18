@@ -18,7 +18,8 @@ const fr = {
   prevYear: 'Année précédente',
   nextYear: 'Année suivante',
   openDetails: 'Voir le détail de {name}',
-  received: 'Reçu',
+  received: 'Cotisé',
+  fees: "dont {amount} de frais d'envoi, non comptés",
   dueToDate: 'Dû à ce jour',
   monthsPaid: (n: number) => `${n} mois payé${n > 1 ? 's' : ''}`,
   setupHint: "Pour activer le suivi mois par mois, indiquez le montant attendu chaque mois dans l'onglet Réglages.",
@@ -38,7 +39,8 @@ const en: Dict = {
   prevYear: 'Previous year',
   nextYear: 'Next year',
   openDetails: 'See details for {name}',
-  received: 'Received',
+  received: 'Contributed',
+  fees: '{amount} of transfer fees not counted',
   dueToDate: 'Due to date',
   monthsPaid: (n: number) => `${n} month${n === 1 ? '' : 's'} paid`,
   setupHint: 'To turn on month-by-month tracking, set the amount expected each month in the Settings tab.',
@@ -64,6 +66,7 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
   const now = new Date()
   const [validated, setValidated] = useState(0)
   const [pending, setPending] = useState(0)
+  const [fees, setFees] = useState(0)
   const [rows, setRows] = useState<MemberTotal[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
@@ -81,10 +84,11 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
       return
     }
     setMsg('')
-    const first = (a.data as Array<{ validated: number; pending: number }>)[0]
+    const first = (a.data as Array<{ validated: number; pending: number; fees?: number }>)[0]
     setValidated(Number(first?.validated ?? 0))
     setPending(Number(first?.pending ?? 0))
-    setRows((b.data as MemberTotal[]).map((r) => ({ ...r, validated: Number(r.validated), pending: Number(r.pending) })))
+    setFees(Number(first?.fees ?? 0))
+    setRows((b.data as MemberTotal[]).map((r) => ({ ...r, validated: Number(r.validated), pending: Number(r.pending), fees: Number(r.fees ?? 0) })))
     const n = await supabase.from('memberships').select('user_id,display_name').eq('group_id', group.group_id)
     if (!n.error) {
       const list = (n.data ?? []) as Array<{ user_id: string; display_name: string }>
@@ -158,6 +162,7 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
         <span className="hero-sub">
           {t('ovPending')} : {money(pending, cur, locale)}
         </span>
+        {fees > 0 && <span className="hero-sub">{tx.fees.replace('{amount}', money(fees, cur, locale))}</span>}
         {onGo && (
           <div className="hero-actions">
             <button type="button" className="pill pill-light" onClick={() => onGo('cot')}>

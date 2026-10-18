@@ -11,6 +11,7 @@ export interface GroupInfo {
   expected_amount?: number | null
   initial_amount?: number | null
   start_month?: string | null
+  fee_table?: unknown // bareme des frais d'envoi (voir lib/fees.ts), null = pas de frais
 }
 
 export interface Membership {
@@ -47,7 +48,8 @@ export interface Contribution {
   id: string
   payer_id: string
   for_user_id: string
-  amount: number
+  amount: number // montant envoye, frais compris
+  fee?: number // frais d'envoi : la cotisation vaut amount - fee
   paid_on: string
   note: string | null
   status: ContributionStatus
@@ -68,8 +70,9 @@ export interface AppNotification {
 export interface MemberTotal {
   user_id: string
   display_name: string
-  validated: number
+  validated: number // cotisation validee (frais deduits)
   pending: number
+  fees?: number // frais d'envoi payes en plus
 }
 
 export type ModuleName = 'annonces' | 'cotisations' | 'rappels' | 'prets'

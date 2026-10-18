@@ -5,11 +5,36 @@ import { useI18n } from '../i18n'
 import type { Contribution, ContributionStatus, Membership, MyGroup } from '../types'
 import { day, errMsg, money } from '../lib/format'
 import { MAX_FILES, prepareFile, validFile } from '../lib/files'
+import { feeFor, parseFeeTable } from '../lib/fees'
 
 const TAG: Record<ContributionStatus, string> = { en_attente: 'warn', validee: 'ok', rejetee: 'bad' }
 
+const TXT = {
+  fr: {
+    sent: 'Montant envoyé, frais compris ({cur})',
+    fee: "Frais d'envoi ({cur})",
+    feeHint: 'Calculés avec le barème du groupe. Mettez 0 si vous avez envoyé sans frais.',
+    split: '= {net} de cotisation + {fee} de frais',
+    noFee: '= {net} de cotisation (sans frais)',
+    badFee: 'Les frais doivent être positifs et plus petits que le montant envoyé.',
+    cardSplit: '{sent} envoyés · {net} de cotisation · {fee} de frais',
+  },
+  en: {
+    sent: 'Amount sent, fees included ({cur})',
+    fee: 'Transfer fees ({cur})',
+    feeHint: "Calculated from the group's fee table. Enter 0 if you sent without fees.",
+    split: '= {net} contribution + {fee} fees',
+    noFee: '= {net} contribution (no fees)',
+    badFee: 'Fees must be positive and smaller than the amount sent.',
+    cardSplit: '{sent} sent · {net} contribution · {fee} fees',
+  },
+}
+
+const toNum = (s: string) => Number(s.trim().replace(/\s/g, '').replace(',', '.'))
+
 export function Contributions({ group, members, userId }: { group: MyGroup; members: Membership[]; userId: string }) {
   const { t, locale } = useI18n()
+  const tx = TXT[locale]
   const gid = group.group_id
   const cur = group.group.currency
   const canReview = group.can_validate || group.is_president
@@ -17,6 +42,8 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const [loaded, setLoaded] = useState(false)
   const [forId, setForId] = useState('')
   const [amount, setAmount] = useState('')
+  const [feeText, setFeeText] = useState('')
+  const [feeTouched, setFeeTouched] = useState(false)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -30,13 +57,13 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('contributions')
-      .select('id,payer_id,for_user_id,amount,paid_on,note,status,reject_reason,created_at,contribution_files(id,storage_path,mime_type)')
+      .select('id,payer_id,for_user_id,amount,fee,paid_on,note,status,reject_reason,created_at,contribution_files(id,storage_path,mime_type)')
       .eq('group_id', gid)
       .order('created_at', { ascending: false })
       .limit(200)
     if (error) setMsg(errMsg(error))
     else {
-      setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount) })))
+      setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount), fee: Number(c.fee ?? 0) })))
       setLoaded(true)
     }
   }, [gid])
@@ -44,6 +71,12 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   useEffect(() => {
     void load()
   }, [load])
+
+  // Frais d'envoi : proposes avec le bareme du groupe, corrigeables (envoi sans frais, especes...)
+  const feeTable = parseFeeTable(group.group.fee_table)
+  const sentNum = toNum(amount)
+  const feeNum = feeTouched ? toNum(feeText || '0') : feeFor(sentNum, feeTable)
+  const netNum = sentNum - (feeTable ? feeNum : 0)
 
   const name = (id: string) => members.find((m) => m.user_id === id)?.display_name ?? '—'
 
@@ -73,20 +106,24 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
     e.preventDefault()
     setMsg('')
     setOk('')
-    const amt = Number(amount.replace(',', '.'))
+    const amt = sentNum
     if (!(amt > 0)) return setMsg(t('cotBadAmount'))
+    const fee = feeTable ? feeNum : 0
+    if (!Number.isFinite(fee) || fee < 0 || fee >= amt) return setMsg(tx.badFee)
     if (files.length === 0) return setMsg(t('cotNeedFile'))
     if (!files.every(validFile)) return setMsg(t('cotFileBad'))
     setBusy(true)
     try {
       const ins = await supabase
         .from('contributions')
-        .insert({ group_id: gid, payer_id: userId, for_user_id: forId, amount: amt, paid_on: date, note: note.trim() || null })
+        .insert({ group_id: gid, payer_id: userId, for_user_id: forId, amount: amt, fee, paid_on: date, note: note.trim() || null })
         .select('id')
         .single()
       if (ins.error) throw ins.error
       await uploadProofs(String((ins.data as { id: string }).id), files)
       setAmount('')
+      setFeeText('')
+      setFeeTouched(false)
       setNote('')
       setFiles([])
       setFileKey((k) => k + 1)
@@ -139,8 +176,16 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
         <span className={`tag ${TAG[c.status]}`}>{t(`st_${c.status}`)}</span>
       </div>
       <div>
-        {money(c.amount, cur, locale)} · <small>{day(c.paid_on, locale)} · {t('cotPayer', { name: name(c.payer_id) })}</small>
+        {money(c.amount - (c.fee ?? 0), cur, locale)} · <small>{day(c.paid_on, locale)} · {t('cotPayer', { name: name(c.payer_id) })}</small>
       </div>
+      {(c.fee ?? 0) > 0 && (
+        <p className="small">
+          {tx.cardSplit
+            .replace('{sent}', money(c.amount, cur, locale))
+            .replace('{net}', money(c.amount - (c.fee ?? 0), cur, locale))
+            .replace('{fee}', money(c.fee ?? 0, cur, locale))}
+        </p>
+      )}
       {c.note && <p className="small pre">{c.note}</p>}
       {c.status === 'rejetee' && c.reject_reason && <p className="small bad-text">{t('cotRejectedWhy', { reason: c.reject_reason })}</p>}
       <div className="row wrap">
@@ -203,7 +248,7 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
         </label>
         <div className="grid2">
           <label className="field">
-            <span>{t('cotAmount')} ({cur})</span>
+            <span>{feeTable ? tx.sent.replace('{cur}', cur) : `${t('cotAmount')} (${cur})`}</span>
             <input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <label className="field">
@@ -211,6 +256,27 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
             <input type="date" required value={date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} />
           </label>
         </div>
+        {feeTable && (
+          <label className="field">
+            <span>{tx.fee.replace('{cur}', cur)}</span>
+            <input
+              inputMode="decimal"
+              value={feeTouched ? feeText : sentNum > 0 ? String(feeNum) : ''}
+              onChange={(e) => {
+                setFeeTouched(true)
+                setFeeText(e.target.value)
+              }}
+            />
+            <small>{tx.feeHint}</small>
+          </label>
+        )}
+        {feeTable && sentNum > 0 && netNum > 0 && (
+          <p className="fee-split">
+            {(feeNum > 0 ? tx.split : tx.noFee)
+              .replace('{net}', money(netNum, cur, locale))
+              .replace('{fee}', money(feeNum, cur, locale))}
+          </p>
+        )}
         <div className="field">
           <span>{t('cotProofs')}</span>
           {/* bouton maison : le champ du navigateur affiche « Sélect. fichiers » dans la langue du systeme */}

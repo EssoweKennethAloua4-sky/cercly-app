@@ -6,6 +6,7 @@ import { errMsg, money } from '../lib/format'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { LangSwitch } from '../components/LangSwitch'
 import { useInstall } from '../lib/install'
+import { MIXX_BY_YAS, parseFeeTable, type FeeTier } from '../lib/fees'
 import '../suivi.css'
 
 const MODULES: ModuleName[] = ['annonces', 'cotisations', 'rappels', 'prets']
@@ -72,6 +73,134 @@ const TXT = {
 
 function fill(s: string, v: Record<string, string>): string {
   return s.replace(/\{(\w+)\}/g, (_, k: string) => v[k] ?? '')
+}
+
+const FEE_TXT = {
+  fr: {
+    title: "Frais d'envoi",
+    intro: "Si les membres envoient leur cotisation par Mobile Money, ils ajoutent les frais de retrait (ex. 2 600 = 2 500 + 100). L'app retire ces frais pour ne compter que la cotisation.",
+    toggle: "Déduire les frais d'envoi",
+    upTo: "jusqu'à {max}",
+    above: 'au-delà',
+    mixx: 'Tarif Mixx by Yas',
+    edit: 'Modifier le barème',
+    add: 'Ajouter une tranche',
+    max: 'Envoi jusqu’à',
+    fee: 'Frais',
+    remove: 'Retirer',
+    save: 'Enregistrer le barème',
+    cancel: 'Annuler',
+    bad: 'Chaque tranche doit avoir un montant maximum et des frais (0 ou plus).',
+  },
+  en: {
+    title: 'Transfer fees',
+    intro: 'If members send their contribution by mobile money, they add the withdrawal fee (e.g. 2,600 = 2,500 + 100). The app removes these fees so only the contribution counts.',
+    toggle: 'Deduct transfer fees',
+    upTo: 'up to {max}',
+    above: 'above',
+    mixx: 'Mixx by Yas rates',
+    edit: 'Edit the fee table',
+    add: 'Add a tier',
+    max: 'Sent up to',
+    fee: 'Fee',
+    remove: 'Remove',
+    save: 'Save the fee table',
+    cancel: 'Cancel',
+    bad: 'Each tier needs a maximum amount and a fee (0 or more).',
+  },
+}
+
+// Bareme des frais d'envoi du groupe (president) : active/desactive, tarif Mixx by Yas en un clic, ou tranches a la main.
+function FeeSettings({ group, onSaved, onError }: { group: MyGroup; onSaved: () => Promise<void>; onError: (m: string) => void }) {
+  const { locale } = useI18n()
+  const ft = FEE_TXT[locale]
+  const cur = group.group.currency
+  const table = parseFeeTable(group.group.fee_table)
+  const [editing, setEditing] = useState(false)
+  const [rows, setRows] = useState<Array<{ max: string; fee: string }>>([])
+
+  async function save(next: FeeTier[] | null) {
+    const { error } = await supabase.from('groups').update({ fee_table: next }).eq('id', group.group_id)
+    if (error) return onError(errMsg(error))
+    setEditing(false)
+    await onSaved()
+  }
+
+  function startEdit() {
+    setRows((table ?? MIXX_BY_YAS).map((t) => ({ max: String(t.max), fee: String(t.fee) })))
+    setEditing(true)
+  }
+
+  function saveRows() {
+    const next = rows.map((r) => ({ max: toNumber(r.max), fee: toNumber(r.fee || '0') }))
+    if (next.length === 0 || next.some((t) => !(t.max > 0) || !Number.isFinite(t.fee) || t.fee < 0)) return onError(ft.bad)
+    void save(next.sort((a, b) => a.max - b.max))
+  }
+
+  return (
+    <section className="card">
+      <h3>{ft.title}</h3>
+      <p className="small">{ft.intro}</p>
+      <label className="check switch">
+        {ft.toggle}
+        <input type="checkbox" role="switch" checked={table !== null} onChange={(e) => void save(e.target.checked ? MIXX_BY_YAS : null)} />
+      </label>
+      {table && !editing && (
+        <>
+          <ul className="fee-list">
+            {table.map((t) => (
+              <li key={t.max}>
+                <span>{ft.upTo.replace('{max}', money(t.max, cur, locale))}</span>
+                <strong>{money(t.fee, cur, locale)}</strong>
+              </li>
+            ))}
+          </ul>
+          <div className="set-actions">
+            <button type="button" className="btn small" onClick={startEdit}>
+              {ft.edit}
+            </button>
+            <button type="button" className="btn small" onClick={() => void save(MIXX_BY_YAS)}>
+              {ft.mixx}
+            </button>
+          </div>
+        </>
+      )}
+      {table && editing && (
+        <div className="stack">
+          {rows.map((r, i) => (
+            <div key={i} className="fee-row">
+              <label className="field">
+                <span>
+                  {ft.max} ({cur})
+                </span>
+                <input inputMode="decimal" value={r.max} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, max: e.target.value } : x)))} />
+              </label>
+              <label className="field">
+                <span>
+                  {ft.fee} ({cur})
+                </span>
+                <input inputMode="decimal" value={r.fee} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, fee: e.target.value } : x)))} />
+              </label>
+              <button type="button" className="btn small danger" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                {ft.remove}
+              </button>
+            </div>
+          ))}
+          <div className="set-actions">
+            <button type="button" className="btn small" onClick={() => setRows([...rows, { max: '', fee: '' }])}>
+              {ft.add}
+            </button>
+            <button type="button" className="btn primary" onClick={saveRows}>
+              {ft.save}
+            </button>
+            <button type="button" className="btn" onClick={() => setEditing(false)}>
+              {ft.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
 }
 
 // Mois proposes pour le debut du suivi : 2 ans en arriere, 1 an en avant (plus la valeur deja enregistree).
@@ -313,6 +442,15 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
               </div>
             </form>
           )}
+
+          <FeeSettings
+            group={group}
+            onSaved={reloadGroups}
+            onError={(m) => {
+              setOk(false)
+              setMsg(m)
+            }}
+          />
 
           <section className="card">
             <h3>{t('setHow')}</h3>

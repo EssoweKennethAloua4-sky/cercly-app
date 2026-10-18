@@ -6,3 +6,6 @@ build
 .env.local
 .env*.local
 .DS_Store
+
+# imports de donnees reelles (montants, noms) : jamais dans GitHub
+supabase/imports/
