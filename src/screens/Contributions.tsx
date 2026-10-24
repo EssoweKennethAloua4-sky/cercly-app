@@ -14,20 +14,40 @@ const TXT = {
     sent: 'Montant envoyé, frais compris ({cur})',
     fee: "Frais d'envoi ({cur})",
     feeHint: 'Calculés avec le barème du groupe. Mettez 0 si vous avez envoyé sans frais.',
-    split: '= {net} de cotisation + {fee} de frais',
-    noFee: '= {net} de cotisation (sans frais)',
-    badFee: 'Les frais doivent être positifs et plus petits que le montant envoyé.',
-    cardSplit: '{sent} envoyés · {net} de cotisation · {fee} de frais',
+    contribution: '{amount} de cotisation',
+    penaltyPart: '{amount} de pénalité',
+    feePart: '{amount} de frais',
+    noFee: '(sans frais)',
+    sentPart: '{amount} envoyés',
+    addPenalty: '+ Ajouter une pénalité de retard',
+    penalty: 'Pénalité de retard ({cur})',
+    penaltyHint: 'Le montant payé en plus à cause d’un retard. Il va dans la caisse, mais ne compte pas comme cotisation.',
+    badFee: 'Les frais et la pénalité doivent être positifs, et plus petits que le montant envoyé.',
   },
   en: {
     sent: 'Amount sent, fees included ({cur})',
     fee: 'Transfer fees ({cur})',
     feeHint: "Calculated from the group's fee table. Enter 0 if you sent without fees.",
-    split: '= {net} contribution + {fee} fees',
-    noFee: '= {net} contribution (no fees)',
-    badFee: 'Fees must be positive and smaller than the amount sent.',
-    cardSplit: '{sent} sent · {net} contribution · {fee} fees',
+    contribution: '{amount} contribution',
+    penaltyPart: '{amount} late penalty',
+    feePart: '{amount} fees',
+    noFee: '(no fees)',
+    sentPart: '{amount} sent',
+    addPenalty: '+ Add a late penalty',
+    penalty: 'Late penalty ({cur})',
+    penaltyHint: 'The extra amount paid because of a delay. It goes into the group funds but does not count as a contribution.',
+    badFee: 'Fees and penalty must be positive and smaller than the amount sent.',
   },
+}
+
+type Words = (typeof TXT)['fr']
+
+// « 2 500 de cotisation + 500 de pénalité + 100 de frais » : seules les parts non nulles sont citees.
+function splitText(w: Words, fmt: (n: number) => string, net: number, penalty: number, fee: number, withFeeInfo: boolean): string {
+  const parts = [w.contribution.replace('{amount}', fmt(net))]
+  if (penalty > 0) parts.push(w.penaltyPart.replace('{amount}', fmt(penalty)))
+  if (fee > 0) parts.push(w.feePart.replace('{amount}', fmt(fee)))
+  return parts.join(' + ') + (withFeeInfo && fee === 0 ? ` ${w.noFee}` : '')
 }
 
 const toNum = (s: string) => Number(s.trim().replace(/\s/g, '').replace(',', '.'))
@@ -44,6 +64,8 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const [amount, setAmount] = useState('')
   const [feeText, setFeeText] = useState('')
   const [feeTouched, setFeeTouched] = useState(false)
+  const [penaltyOpen, setPenaltyOpen] = useState(false)
+  const [penaltyText, setPenaltyText] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -57,13 +79,13 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('contributions')
-      .select('id,payer_id,for_user_id,amount,fee,paid_on,note,status,reject_reason,created_at,contribution_files(id,storage_path,mime_type)')
+      .select('id,payer_id,for_user_id,amount,fee,penalty,paid_on,note,status,reject_reason,created_at,contribution_files(id,storage_path,mime_type)')
       .eq('group_id', gid)
       .order('created_at', { ascending: false })
       .limit(200)
     if (error) setMsg(errMsg(error))
     else {
-      setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount), fee: Number(c.fee ?? 0) })))
+      setList(((data ?? []) as Contribution[]).map((c) => ({ ...c, amount: Number(c.amount), fee: Number(c.fee ?? 0), penalty: Number(c.penalty ?? 0) })))
       setLoaded(true)
     }
   }, [gid])
@@ -76,7 +98,9 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const feeTable = parseFeeTable(group.group.fee_table)
   const sentNum = toNum(amount)
   const feeNum = feeTouched ? toNum(feeText || '0') : feeFor(sentNum, feeTable)
-  const netNum = sentNum - (feeTable ? feeNum : 0)
+  const penaltyNum = penaltyOpen ? toNum(penaltyText || '0') : 0
+  const netNum = sentNum - (feeTable ? feeNum : 0) - penaltyNum
+  const fmtMoney = (n: number) => money(n, cur, locale)
 
   const name = (id: string) => members.find((m) => m.user_id === id)?.display_name ?? '—'
 
@@ -109,14 +133,15 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
     const amt = sentNum
     if (!(amt > 0)) return setMsg(t('cotBadAmount'))
     const fee = feeTable ? feeNum : 0
-    if (!Number.isFinite(fee) || fee < 0 || fee >= amt) return setMsg(tx.badFee)
+    const penalty = penaltyNum
+    if (!Number.isFinite(fee) || !Number.isFinite(penalty) || fee < 0 || penalty < 0 || fee + penalty >= amt) return setMsg(tx.badFee)
     if (files.length === 0) return setMsg(t('cotNeedFile'))
     if (!files.every(validFile)) return setMsg(t('cotFileBad'))
     setBusy(true)
     try {
       const ins = await supabase
         .from('contributions')
-        .insert({ group_id: gid, payer_id: userId, for_user_id: forId, amount: amt, fee, paid_on: date, note: note.trim() || null })
+        .insert({ group_id: gid, payer_id: userId, for_user_id: forId, amount: amt, fee, penalty, paid_on: date, note: note.trim() || null })
         .select('id')
         .single()
       if (ins.error) throw ins.error
@@ -124,6 +149,8 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
       setAmount('')
       setFeeText('')
       setFeeTouched(false)
+      setPenaltyOpen(false)
+      setPenaltyText('')
       setNote('')
       setFiles([])
       setFileKey((k) => k + 1)
@@ -176,14 +203,12 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
         <span className={`tag ${TAG[c.status]}`}>{t(`st_${c.status}`)}</span>
       </div>
       <div>
-        {money(c.amount - (c.fee ?? 0), cur, locale)} · <small>{day(c.paid_on, locale)} · {t('cotPayer', { name: name(c.payer_id) })}</small>
+        {fmtMoney(c.amount - (c.fee ?? 0) - (c.penalty ?? 0))} · <small>{day(c.paid_on, locale)} · {t('cotPayer', { name: name(c.payer_id) })}</small>
       </div>
-      {(c.fee ?? 0) > 0 && (
+      {((c.fee ?? 0) > 0 || (c.penalty ?? 0) > 0) && (
         <p className="small">
-          {tx.cardSplit
-            .replace('{sent}', money(c.amount, cur, locale))
-            .replace('{net}', money(c.amount - (c.fee ?? 0), cur, locale))
-            .replace('{fee}', money(c.fee ?? 0, cur, locale))}
+          {tx.sentPart.replace('{amount}', fmtMoney(c.amount))} ={' '}
+          {splitText(tx, fmtMoney, c.amount - (c.fee ?? 0) - (c.penalty ?? 0), c.penalty ?? 0, c.fee ?? 0, false)}
         </p>
       )}
       {c.note && <p className="small pre">{c.note}</p>}
@@ -270,11 +295,20 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
             <small>{tx.feeHint}</small>
           </label>
         )}
-        {feeTable && sentNum > 0 && netNum > 0 && (
+        {penaltyOpen ? (
+          <label className="field">
+            <span>{tx.penalty.replace('{cur}', cur)}</span>
+            <input inputMode="decimal" value={penaltyText} onChange={(e) => setPenaltyText(e.target.value)} placeholder="500" />
+            <small>{tx.penaltyHint}</small>
+          </label>
+        ) : (
+          <button type="button" className="link" onClick={() => setPenaltyOpen(true)}>
+            {tx.addPenalty}
+          </button>
+        )}
+        {(feeTable || penaltyNum > 0) && sentNum > 0 && netNum > 0 && (
           <p className="fee-split">
-            {(feeNum > 0 ? tx.split : tx.noFee)
-              .replace('{net}', money(netNum, cur, locale))
-              .replace('{fee}', money(feeNum, cur, locale))}
+            = {splitText(tx, fmtMoney, netNum, penaltyNum, feeTable ? feeNum : 0, feeTable !== null)}
           </p>
         )}
         <div className="field">

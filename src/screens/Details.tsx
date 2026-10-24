@@ -12,7 +12,11 @@ const fr = {
   received: 'Cotisé',
   feesLine: "+ {amount} de frais d'envoi (non comptés)",
   feesTotal: "Frais d'envoi (non comptés)",
-  paySplit: 'envoyé {sent}, dont {fee} de frais',
+  penaltiesLine: '+ {amount} de pénalités de retard',
+  penaltiesTotal: 'Pénalités de retard payées',
+  paySent: 'envoyé {amount}',
+  payPenalty: '{amount} de pénalité',
+  payFee: '{amount} de frais',
   dueToDate: 'Dû à ce jour',
   upToDate: 'À jour',
   late: 'Retard {amount}',
@@ -65,7 +69,11 @@ const en: Dict = {
   received: 'Contributed',
   feesLine: '+ {amount} of transfer fees (not counted)',
   feesTotal: 'Transfer fees (not counted)',
-  paySplit: 'sent {sent}, including {fee} of fees',
+  penaltiesLine: '+ {amount} of late penalties',
+  penaltiesTotal: 'Late penalties paid',
+  paySent: 'sent {amount}',
+  payPenalty: '{amount} penalty',
+  payFee: '{amount} fees',
   dueToDate: 'Due to date',
   upToDate: 'Up to date',
   late: 'Overdue {amount}',
@@ -139,7 +147,7 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
     void (async () => {
       const { data, error } = await supabase
         .from('contributions')
-        .select('id,payer_id,for_user_id,amount,fee,paid_on,note,status,reject_reason,created_at')
+        .select('id,payer_id,for_user_id,amount,fee,penalty,paid_on,note,status,reject_reason,created_at')
         .eq('group_id', group.group_id)
         .eq('for_user_id', selected)
         .order('paid_on', { ascending: true })
@@ -159,9 +167,10 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
   }, [selected, tick, group.group_id])
 
   const fmt = (cents: number) => money(cents / 100, cur, locale)
-  // cotisation d'un paiement = montant envoye - frais d'envoi (en centimes)
-  const netC = (c: Contribution) => Math.round((Number(c.amount) - Number(c.fee ?? 0)) * 100)
+  // cotisation d'un paiement = montant envoye - frais d'envoi - penalite de retard (en centimes)
   const feeC = (c: Contribution) => Math.round(Number(c.fee ?? 0) * 100)
+  const penC = (c: Contribution) => Math.round(Number(c.penalty ?? 0) * 100)
+  const netC = (c: Contribution) => Math.round(Number(c.amount) * 100) - feeC(c) - penC(c)
   const monthName = (y: number, m: number) => {
     const s = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' }).format(new Date(y, m, 1))
     return s.charAt(0).toUpperCase() + s.slice(1)
@@ -213,6 +222,9 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
                 <span className="dt-sub">
                   {tx.received} {fmt(v)} · {tx.dueToDate} {fmt(due)}
                 </span>
+                {(r.penalties ?? 0) > 0 && (
+                  <span className="dt-sub">{fill(tx.penaltiesLine, { amount: fmt(Math.round((r.penalties ?? 0) * 100)) })}</span>
+                )}
                 {(r.fees ?? 0) > 0 && <span className="dt-sub">{fill(tx.feesLine, { amount: fmt(Math.round((r.fees ?? 0) * 100)) })}</span>}
               </span>
               <span className={`tag ${late > 0 ? 'bad' : 'ok'}`}>
@@ -262,6 +274,12 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
             <span className="dt-sub">{tx.dueToDate}</span>
             <strong>{fmt(due)}</strong>
           </div>
+          {(sel.penalties ?? 0) > 0 && (
+            <div>
+              <span className="dt-sub">{tx.penaltiesTotal}</span>
+              <strong>{fmt(Math.round((sel.penalties ?? 0) * 100))}</strong>
+            </div>
+          )}
           {(sel.fees ?? 0) > 0 && (
             <div>
               <span className="dt-sub">{tx.feesTotal}</span>
@@ -299,8 +317,16 @@ export function Details({ group, plan, rows, names, year, curIdx, selected, onSe
                 </span>
                 <span className={`tag ${statusClass}`}>{tx.status[c.status] ?? c.status}</span>
               </div>
-              {feeC(c) > 0 && (
-                <p className="small">{fill(tx.paySplit, { sent: fmt(Math.round(Number(c.amount) * 100)), fee: fmt(feeC(c)) })}</p>
+              {(feeC(c) > 0 || penC(c) > 0) && (
+                <p className="small">
+                  {[
+                    fill(tx.paySent, { amount: fmt(Math.round(Number(c.amount) * 100)) }),
+                    penC(c) > 0 ? fill(tx.payPenalty, { amount: fmt(penC(c)) }) : '',
+                    feeC(c) > 0 ? fill(tx.payFee, { amount: fmt(feeC(c)) }) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
               )}
               {c.payer_id !== c.for_user_id && (
                 <p className="small">{fill(tx.paidBy, { name: names[c.payer_id] ?? tx.someone })}</p>

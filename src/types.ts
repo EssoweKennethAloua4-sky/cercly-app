@@ -49,7 +49,8 @@ export interface Contribution {
   payer_id: string
   for_user_id: string
   amount: number // montant envoye, frais compris
-  fee?: number // frais d'envoi : la cotisation vaut amount - fee
+  fee?: number // frais d'envoi (partent chez l'operateur)
+  penalty?: number // penalite de retard (entre dans la caisse) ; cotisation = amount - fee - penalty
   paid_on: string
   note: string | null
   status: ContributionStatus
@@ -73,6 +74,7 @@ export interface MemberTotal {
   validated: number // cotisation validee (frais deduits)
   pending: number
   fees?: number // frais d'envoi payes en plus
+  penalties?: number // penalites de retard payees en plus
 }
 
 export type ModuleName = 'annonces' | 'cotisations' | 'rappels' | 'prets'
