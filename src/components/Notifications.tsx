@@ -24,7 +24,8 @@ export function NotificationsPanel({ groupId, currency, onRead }: { groupId: str
 
   const text = (n: AppNotification) => {
     const d = n.details
-    return t(`n_${n.kind}`, {
+    const key = n.kind === 'cotisation_nouvelle' && d.name ? 'n_cotisation_nouvelle_named' : `n_${n.kind}`
+    return t(key, {
       amount: d.amount !== undefined ? money(Number(d.amount), currency, locale) : '',
       title: String(d.title ?? ''),
       reason: String(d.reason ?? ''),

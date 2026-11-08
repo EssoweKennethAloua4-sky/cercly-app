@@ -11,6 +11,29 @@ interface Tally {
   quorum: number
 }
 
+const TXT = {
+  fr: {
+    waitGuarantor: 'En attente du garant : {name} doit confirmer dans l’app avant le vote.',
+    waitFix: 'Garant non reconnu : le président doit corriger le garant, ou décider directement.',
+    openVote: 'Ouvrir le vote sans attendre le garant',
+    grant: 'Accorder le prêt',
+    refuse: 'Refuser le prêt',
+    grantConfirm: 'Accorder ce prêt de {amount} maintenant, sans attendre le vote ?',
+    refuseConfirm: 'Refuser ce prêt de {amount} maintenant ?',
+    presidentHint: 'En tant que président, vous pouvez décider tout de suite :',
+  },
+  en: {
+    waitGuarantor: 'Waiting for the guarantor: {name} must confirm in the app before the vote.',
+    waitFix: 'Guarantor not recognised: the president must fix the guarantor, or decide directly.',
+    openVote: 'Open the vote without waiting for the guarantor',
+    grant: 'Approve the loan',
+    refuse: 'Refuse the loan',
+    grantConfirm: 'Approve this {amount} loan now, without waiting for the vote?',
+    refuseConfirm: 'Refuse this {amount} loan now?',
+    presidentHint: 'As president, you can decide right away:',
+  },
+}
+
 const TAG: Record<string, string> = {
   a_examiner: 'warn',
   en_vote: 'warn',
@@ -23,6 +46,7 @@ const TAG: Record<string, string> = {
 
 export function Loans({ group, members, userId }: { group: MyGroup; members: Membership[]; userId: string }) {
   const { t, locale } = useI18n()
+  const tx = TXT[locale]
   const gid = group.group_id
   const cur = group.group.currency
   const isP = group.is_president
@@ -158,6 +182,12 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
         {l.status === 'annulee' && l.dismiss_reason && <small className="bad-text">{t('loanDismissedWhy', { reason: l.dismiss_reason })}</small>}
         {l.decision_basis && <small>{t(`basis_${l.decision_basis}`)}</small>}
 
+        {/* Ce que la demande attend, dit simplement (sinon personne ne comprend pourquoi rien ne bouge) */}
+        {l.status === 'a_examiner' && l.guarantor_response === 'en_attente' && l.guarantor_member_id && l.guarantor_member_id !== userId && (
+          <p className="hint-warn">{tx.waitGuarantor.replace('{name}', name(l.guarantor_member_id))}</p>
+        )}
+        {l.status === 'a_examiner' && !l.guarantor_member_id && <p className="hint-warn">{tx.waitFix}</p>}
+
         {l.status === 'a_examiner' && l.guarantor_response === 'en_attente' && l.guarantor_member_id === userId && (
           <div className="stack">
             <p className="small">{t('loanIAmGuarantor')}</p>
@@ -280,6 +310,39 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
               {t('loanDismiss')}
             </button>
           ))}
+
+        {l.status === 'a_examiner' && canReview && (
+          <button className="btn small" onClick={() => void call('open_loan_vote_now', { p_loan: l.id })}>
+            {tx.openVote}
+          </button>
+        )}
+
+        {/* Le president decide sans attendre le garant ni la fin du vote (jamais pour sa propre demande) */}
+        {isP && ['a_examiner', 'garant_refuse', 'en_vote'].includes(l.status) && l.borrower_member_id !== userId && (
+          <div className="stack">
+            <small>{tx.presidentHint}</small>
+            <div className="row wrap">
+              <button
+                className="btn ok"
+                onClick={() => {
+                  if (window.confirm(tx.grantConfirm.replace('{amount}', money(l.amount, cur, locale))))
+                    void call('decide_loan_now', { p_loan: l.id, p_decision: 'validee' })
+                }}
+              >
+                {tx.grant}
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  if (window.confirm(tx.refuseConfirm.replace('{amount}', money(l.amount, cur, locale))))
+                    void call('decide_loan_now', { p_loan: l.id, p_decision: 'refusee' })
+                }}
+              >
+                {tx.refuse}
+              </button>
+            </div>
+          </div>
+        )}
 
         {l.status === 'validee' && isP && (
           <button className="btn" onClick={() => void call('mark_loan_repaid', { p_loan: l.id })}>

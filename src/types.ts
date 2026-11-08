@@ -95,7 +95,7 @@ export interface Loan {
   status: LoanStatus
   closes_at: string | null
   decided_at: string | null
-  decision_basis: 'majorite' | 'egalite' | 'sans_quorum' | null
+  decision_basis: 'majorite' | 'egalite' | 'sans_quorum' | 'president' | null
   dismiss_reason: string | null
   created_at: string
 }
