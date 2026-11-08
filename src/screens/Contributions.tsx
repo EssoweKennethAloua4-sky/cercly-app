@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Contribution, ContributionStatus, Membership, MyGroup } from '../types'
+import { leads } from '../types'
 import { day, errMsg, money } from '../lib/format'
 import { MAX_FILES, prepareFile, validFile } from '../lib/files'
 import { feeFor, parseFeeTable } from '../lib/fees'
@@ -57,7 +58,7 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const tx = TXT[locale]
   const gid = group.group_id
   const cur = group.group.currency
-  const canReview = group.can_validate || group.is_president
+  const canReview = group.can_validate || leads(group)
   const [list, setList] = useState<Contribution[]>([])
   const [loaded, setLoaded] = useState(false)
   const [forId, setForId] = useState('')

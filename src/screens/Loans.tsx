@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Loan, LoanBorrower, LoanRepayment, Membership, MyGroup } from '../types'
+import { leads } from '../types'
 import { day, errMsg, money } from '../lib/format'
 
 interface Tally {
@@ -90,7 +91,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
   const tx = TXT[locale]
   const gid = group.group_id
   const cur = group.group.currency
-  const isP = group.is_president
+  const isP = leads(group)
   const canReview = isP || group.can_validate
 
   const [link, setLink] = useState<{ token: string; status: string } | null>(null)

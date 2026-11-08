@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupModules, ModuleName, MyGroup } from '../types'
+import { leads } from '../types'
 import { errMsg, money } from '../lib/format'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { LangSwitch } from '../components/LangSwitch'
@@ -366,7 +367,7 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
   const tx = TXT[locale]
   const gid = group.group_id
   const g = group.group
-  const isP = group.is_president
+  const isP = leads(group)
   const configured = Boolean(Number(g.expected_amount ?? 0) > 0 && g.start_month)
   const [msg, setMsg] = useState('')
   const [ok, setOk] = useState(false)

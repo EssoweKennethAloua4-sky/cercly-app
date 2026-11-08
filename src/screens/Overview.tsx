@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { MemberTotal, MyGroup } from '../types'
+import { leads } from '../types'
 import { errMsg, money } from '../lib/format'
 import { cellOf, cover, monthIndex, parsePlan } from '../lib/schedule'
 import { Details } from './Details'
@@ -361,7 +362,7 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
       ) : (
         <div className="card">
           <h3>{t('ovPerMember')}</h3>
-          {group.is_president && <p className="small">{tx.setupHint}</p>}
+          {leads(group) && <p className="small">{tx.setupHint}</p>}
           {rows.map((r) => (
             <div key={r.user_id} className="member-row">
               <div className="row between">

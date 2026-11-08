@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { Membership, MyGroup } from '../types'
+import { leads } from '../types'
 import { errMsg } from '../lib/format'
 
 interface Props {
@@ -15,7 +16,8 @@ interface Props {
 export function Members({ group, members, userId, reloadMembers, reloadGroups }: Props) {
   const { t } = useI18n()
   const gid = group.group_id
-  const isP = group.is_president
+  const isP = leads(group) // president ou secretaire : gere les membres
+  const isTrueP = group.is_president // le president seul : secretaire, transmission
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(false)
   const [msg, setMsg] = useState('')
@@ -49,6 +51,18 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
     if (!window.confirm(t('memTransferConfirm', { name: m.display_name }))) return
     setMsg('')
     const { error } = await supabase.rpc('transfer_presidency', { p_group: gid, p_new: m.user_id })
+    if (error) setMsg(errMsg(error))
+    await reloadGroups()
+    await reloadMembers()
+  }
+
+  async function setSecretary(m: Membership | null) {
+    const ok = m
+      ? window.confirm(t('memSecretaryConfirm', { name: m.display_name }))
+      : window.confirm(t('memSecretaryRemoveConfirm'))
+    if (!ok) return
+    setMsg('')
+    const { error } = await supabase.rpc('set_secretary', { p_group: gid, p_user: m ? m.user_id : null })
     if (error) setMsg(errMsg(error))
     await reloadGroups()
     await reloadMembers()
@@ -101,7 +115,7 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
           <div className="row between">
             <strong>{m.display_name}</strong>
             <span className="tag">
-              {t(m.is_president ? 'role_president' : m.can_validate ? 'role_validator' : m.can_publish ? 'role_publisher' : 'role_member')}
+              {t(m.is_president ? 'role_president' : m.is_secretary ? 'role_secretary' : m.can_validate ? 'role_validator' : m.can_publish ? 'role_publisher' : 'role_member')}
             </span>
           </div>
           {isP && !m.is_president && (
@@ -115,12 +129,26 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
                 <input type="checkbox" role="switch" checked={m.can_publish} onChange={() => void toggle(m, 'can_publish')} />
               </label>
               <div className="row wrap">
-                <button className="btn small" onClick={() => void transfer(m)}>
-                  {t('memTransfer')}
-                </button>
-                <button className="btn small danger" onClick={() => void removeMember(m)}>
-                  {t('remove')}
-                </button>
+                {isTrueP &&
+                  (m.is_secretary ? (
+                    <button className="btn small" onClick={() => void setSecretary(null)}>
+                      {t('memSecretaryRemove')}
+                    </button>
+                  ) : (
+                    <button className="btn small" onClick={() => void setSecretary(m)}>
+                      {t('memSecretaryMake')}
+                    </button>
+                  ))}
+                {isTrueP && (
+                  <button className="btn small" onClick={() => void transfer(m)}>
+                    {t('memTransfer')}
+                  </button>
+                )}
+                {(isTrueP || !m.is_secretary) && m.user_id !== userId && (
+                  <button className="btn small danger" onClick={() => void removeMember(m)}>
+                    {t('remove')}
+                  </button>
+                )}
               </div>
             </>
           )}

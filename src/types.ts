@@ -20,10 +20,14 @@ export interface Membership {
   user_id: string
   display_name: string
   is_president: boolean
+  is_secretary?: boolean // memes droits que le president, nomme par lui seul
   can_validate: boolean
   can_publish: boolean
   status: string
 }
+
+// President ou secretaire : ceux qui dirigent le groupe
+export const leads = (m: Pick<Membership, 'is_president' | 'is_secretary'>) => m.is_president || m.is_secretary === true
 
 export interface MyGroup extends Membership {
   group: GroupInfo

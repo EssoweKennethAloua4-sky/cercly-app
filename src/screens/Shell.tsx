@@ -32,7 +32,7 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
   const loadMembers = useCallback(async () => {
     const { data } = await supabase
       .from('memberships')
-      .select('group_id,user_id,display_name,is_president,can_validate,can_publish,status')
+      .select('group_id,user_id,display_name,is_president,is_secretary,can_validate,can_publish,status')
       .eq('group_id', gid)
       .eq('status', 'active')
       .order('display_name')
@@ -98,7 +98,7 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
     setBell(false)
   }
 
-  const role = active.is_president ? 'role_president' : active.can_validate ? 'role_validator' : active.can_publish ? 'role_publisher' : 'role_member'
+  const role = active.is_president ? 'role_president' : active.is_secretary ? 'role_secretary' : active.can_validate ? 'role_validator' : active.can_publish ? 'role_publisher' : 'role_member'
 
   const nav: Array<[Tab, string]> = [
     ['ann', 'nav_ann'],
