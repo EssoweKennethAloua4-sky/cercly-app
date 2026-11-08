@@ -146,6 +146,7 @@ const fr = {
   n_pret_garant_refuse: 'Le garant a refusé la demande de prêt de {amount}',
   n_pret_ouvert_au_vote: 'Vote ouvert : demande de prêt de {amount}',
   n_pret_annulee: 'Demande de prêt de {amount} écartée',
+  n_pret_echeance: 'Rappel : le prêt de {amount} ({name}) arrive à échéance dans {hours} h',
   // prêts
   nav_loans: 'Prêts',
   nav_settings: 'Réglages',
@@ -378,6 +379,7 @@ const en: Dict = {
   n_pret_garant_refuse: 'The guarantor declined the loan request of {amount}',
   n_pret_ouvert_au_vote: 'Voting is open: loan request of {amount}',
   n_pret_annulee: 'Loan request of {amount} dismissed',
+  n_pret_echeance: 'Reminder: the loan of {amount} ({name}) is due in {hours} h',
   nav_loans: 'Loans',
   nav_settings: 'Settings',
   loansTitle: 'Loans',

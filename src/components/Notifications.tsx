@@ -30,6 +30,7 @@ export function NotificationsPanel({ groupId, currency, onRead }: { groupId: str
       title: String(d.title ?? ''),
       reason: String(d.reason ?? ''),
       name: String(d.name ?? ''),
+      hours: String(d.hours ?? ''),
     })
   }
 
