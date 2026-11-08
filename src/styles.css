@@ -228,3 +228,6 @@ progress { width: 100%; height: 8px; accent-color: var(--brand); }
 .fee-list li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .fee-list li + li { border-top: 1px solid var(--line); }
 .fee-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+.fee-list li .btn { margin-left: auto; }
+.repay-bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.repay-bar i { display: block; height: 100%; border-radius: inherit; background: var(--ok, #16a34a); }

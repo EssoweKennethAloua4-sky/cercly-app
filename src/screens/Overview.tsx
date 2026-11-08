@@ -26,7 +26,9 @@ const fr = {
   loansOpen: (n: number) => `${n} prêt${n > 1 ? 's' : ''} à rembourser`,
   noLoan: 'aucun prêt en cours',
   inCash: 'Reste en caisse',
-  inCashHint: 'cotisations + pénalités − prêts en cours',
+  inCashHint: 'cotisations + pénalités − prêts + remboursements',
+  dueLeft: 'Reste à rembourser',
+  interest: 'Intérêts encaissés',
   monthsPaid: (n: number) => `${n} mois payé${n > 1 ? 's' : ''}`,
   setupHint: "Pour activer le suivi mois par mois, indiquez le montant attendu chaque mois dans l'onglet Réglages.",
   legend: { initial: 'apport', paid: 'payé', pending: 'à valider', late: 'en retard', due: 'ce mois-ci', future: 'à venir' },
@@ -53,7 +55,9 @@ const en: Dict = {
   loansOpen: (n: number) => `${n} loan${n === 1 ? '' : 's'} to repay`,
   noLoan: 'no open loan',
   inCash: 'Left in the funds',
-  inCashHint: 'contributions + penalties − open loans',
+  inCashHint: 'contributions + penalties − loans + repayments',
+  dueLeft: 'Left to repay',
+  interest: 'Interest earned',
   monthsPaid: (n: number) => `${n} month${n === 1 ? '' : 's'} paid`,
   setupHint: 'To turn on month-by-month tracking, set the amount expected each month in the Settings tab.',
   legend: { initial: 'initial', paid: 'paid', pending: 'to review', late: 'overdue', due: 'this month', future: 'upcoming' },
@@ -87,7 +91,7 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const [year, setYear] = useState(now.getFullYear())
   const [tick, setTick] = useState(0)
-  const [cash, setCash] = useState<{ lent: number; open: number; inCash: number } | null>(null)
+  const [cash, setCash] = useState<{ lent: number; open: number; dueLeft: number; interest: number; inCash: number } | null>(null)
   const detailsRef = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(async () => {
@@ -118,8 +122,8 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
       setNames(Object.fromEntries(list.map((m) => [m.user_id, m.display_name])))
     }
     const c = await supabase.rpc('group_cash', { p_group: group.group_id })
-    const cr = !c.error ? (c.data as Array<{ lent: number; loans_open: number; in_cash: number }>)[0] : undefined
-    setCash(cr ? { lent: Number(cr.lent), open: Number(cr.loans_open), inCash: Number(cr.in_cash) } : null)
+    const cr = !c.error ? (c.data as Array<{ lent: number; loans_open: number; due_left?: number; interest?: number; in_cash: number }>)[0] : undefined
+    setCash(cr ? { lent: Number(cr.lent), open: Number(cr.loans_open), dueLeft: Number(cr.due_left ?? 0), interest: Number(cr.interest ?? 0), inCash: Number(cr.in_cash) } : null)
     setLoaded(true)
     setTick((x) => x + 1)
   }, [group.group_id])
@@ -215,6 +219,14 @@ export function Overview({ group, onGo, loansEnabled }: Props) {
             <small>{tx.inCash}</small>
             <div className="tile-value">{money(cash.inCash, cur, locale)}</div>
             <span className="tag">{tx.inCashHint}</span>
+          </div>
+          <div className="card tile">
+            <small>{tx.dueLeft}</small>
+            <div className="tile-value">{money(cash.dueLeft, cur, locale)}</div>
+          </div>
+          <div className="card tile">
+            <small>{tx.interest}</small>
+            <div className="tile-value">{money(cash.interest, cur, locale)}</div>
           </div>
         </div>
       )}

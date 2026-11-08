@@ -31,6 +31,7 @@ export function NotificationsPanel({ groupId, currency, onRead }: { groupId: str
       reason: String(d.reason ?? ''),
       name: String(d.name ?? ''),
       hours: String(d.hours ?? ''),
+      left: d.left !== undefined ? money(Number(d.left), currency, locale) : '',
     })
   }
 

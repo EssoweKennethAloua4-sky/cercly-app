@@ -110,6 +110,131 @@ const FEE_TXT = {
   },
 }
 
+const RATE_TXT = {
+  fr: {
+    title: "Taux d'intérêt des prêts",
+    intro: "Le taux dépend de la durée du prêt (de la demande à l'échéance). Il est appliqué à chaque nouvelle demande ; le président peut le modifier prêt par prêt.",
+    upTo: "Jusqu'à {days} jours",
+    beyond: 'Au-delà',
+    days: 'Jusqu’à (jours)',
+    rate: 'Taux (%)',
+    edit: 'Modifier le barème',
+    add: 'Ajouter une tranche',
+    remove: 'Retirer',
+    save: 'Enregistrer le barème',
+    cancel: 'Annuler',
+    bad: 'Chaque tranche demande un nombre de jours et un taux entre 0 et 100.',
+  },
+  en: {
+    title: 'Loan interest rates',
+    intro: 'The rate depends on how long the loan lasts (from the request to the due date). It applies to each new request; the president can change it loan by loan.',
+    upTo: 'Up to {days} days',
+    beyond: 'Beyond',
+    days: 'Up to (days)',
+    rate: 'Rate (%)',
+    edit: 'Edit the rates',
+    add: 'Add a tier',
+    remove: 'Remove',
+    save: 'Save the rates',
+    cancel: 'Cancel',
+    bad: 'Each tier needs a number of days and a rate between 0 and 100.',
+  },
+}
+
+type RateTier = { days: number; rate: number }
+const DEFAULT_RATES: RateTier[] = [
+  { days: 14, rate: 10 },
+  { days: 31, rate: 15 },
+  { days: 62, rate: 20 },
+  { days: 92, rate: 25 },
+]
+function parseRates(v: unknown): RateTier[] {
+  if (!Array.isArray(v)) return DEFAULT_RATES
+  const out = v
+    .map((x) => ({ days: Number((x as RateTier)?.days), rate: Number((x as RateTier)?.rate) }))
+    .filter((x) => x.days > 0 && Number.isFinite(x.rate))
+  return out.length ? out.sort((a, b) => a.days - b.days) : DEFAULT_RATES
+}
+
+// Bareme des taux d'interet (president) : une tranche par duree maximale ; au-dela de la derniere, son taux s'applique.
+function RateSettings({ group, onSaved, onError }: { group: MyGroup; onSaved: () => Promise<void>; onError: (m: string) => void }) {
+  const { locale } = useI18n()
+  const rt = RATE_TXT[locale]
+  const table = parseRates(group.group.loan_rates)
+  const [editing, setEditing] = useState(false)
+  const [rows, setRows] = useState<Array<{ days: string; rate: string }>>([])
+
+  async function saveRows() {
+    const next = rows.map((r) => ({ days: toNumber(r.days), rate: toNumber(r.rate) }))
+    if (next.length === 0 || next.some((t) => !(t.days > 0) || !(t.rate >= 0 && t.rate <= 100))) return onError(rt.bad)
+    const { error } = await supabase.from('groups').update({ loan_rates: next.sort((a, b) => a.days - b.days) }).eq('id', group.group_id)
+    if (error) return onError(errMsg(error))
+    setEditing(false)
+    await onSaved()
+  }
+
+  return (
+    <section className="card">
+      <h3>{rt.title}</h3>
+      <p className="small">{rt.intro}</p>
+      {!editing ? (
+        <>
+          <ul className="fee-list">
+            {table.map((t, i) => (
+              <li key={t.days}>
+                <span>{rt.upTo.replace('{days}', String(t.days))}</span>
+                <strong>{t.rate} %</strong>
+                {i === table.length - 1 && <small>{rt.beyond} : {t.rate} %</small>}
+              </li>
+            ))}
+          </ul>
+          <div className="set-actions">
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => {
+                setRows(table.map((t) => ({ days: String(t.days), rate: String(t.rate) })))
+                setEditing(true)
+              }}
+            >
+              {rt.edit}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="stack">
+          {rows.map((r, i) => (
+            <div key={i} className="fee-row">
+              <label className="field">
+                <span>{rt.days}</span>
+                <input inputMode="numeric" value={r.days} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, days: e.target.value } : x)))} />
+              </label>
+              <label className="field">
+                <span>{rt.rate}</span>
+                <input inputMode="decimal" value={r.rate} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))} />
+              </label>
+              <button type="button" className="btn small danger" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                {rt.remove}
+              </button>
+            </div>
+          ))}
+          <div className="set-actions">
+            <button type="button" className="btn small" onClick={() => setRows([...rows, { days: '', rate: '' }])}>
+              {rt.add}
+            </button>
+            <button type="button" className="btn primary" onClick={() => void saveRows()}>
+              {rt.save}
+            </button>
+            <button type="button" className="btn" onClick={() => setEditing(false)}>
+              {rt.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 // Bareme des frais d'envoi du groupe (president) : active/desactive, tarif Mixx by Yas en un clic, ou tranches a la main.
 function FeeSettings({ group, onSaved, onError }: { group: MyGroup; onSaved: () => Promise<void>; onError: (m: string) => void }) {
   const { locale } = useI18n()
@@ -444,6 +569,15 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
           )}
 
           <FeeSettings
+            group={group}
+            onSaved={reloadGroups}
+            onError={(m) => {
+              setOk(false)
+              setMsg(m)
+            }}
+          />
+
+          <RateSettings
             group={group}
             onSaved={reloadGroups}
             onError={(m) => {

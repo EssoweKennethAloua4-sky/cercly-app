@@ -12,6 +12,7 @@ export interface GroupInfo {
   initial_amount?: number | null
   start_month?: string | null
   fee_table?: unknown // bareme des frais d'envoi (voir lib/fees.ts), null = pas de frais
+  loan_rates?: unknown // bareme des taux d'interet des prets : [{ days, rate }]
 }
 
 export interface Membership {
@@ -91,6 +92,8 @@ export interface Loan {
   guarantor_check: 'lien' | 'autre_membre' | 'inconnu' | 'corrige'
   guarantor_response: 'en_attente' | 'confirme' | 'refuse'
   amount: number
+  interest_rate: number | null
+  interest: number
   due_date: string
   status: LoanStatus
   closes_at: string | null
@@ -98,6 +101,14 @@ export interface Loan {
   decision_basis: 'majorite' | 'egalite' | 'sans_quorum' | 'president' | null
   dismiss_reason: string | null
   created_at: string
+}
+
+export interface LoanRepayment {
+  id: string
+  loan_id: string
+  amount: number
+  paid_on: string
+  note: string | null
 }
 
 export interface LoanBorrower {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
-import type { Loan, LoanBorrower, Membership, MyGroup } from '../types'
+import type { Loan, LoanBorrower, LoanRepayment, Membership, MyGroup } from '../types'
 import { day, errMsg, money } from '../lib/format'
 
 interface Tally {
@@ -21,6 +21,23 @@ const TXT = {
     grantConfirm: 'Accorder ce prêt de {amount} maintenant, sans attendre le vote ?',
     refuseConfirm: 'Refuser ce prêt de {amount} maintenant ?',
     presidentHint: 'En tant que président, vous pouvez décider tout de suite :',
+    terms: 'Taux {rate} % · intérêt {interest} · total dû {total}',
+    paid: 'Remboursé {paid} sur {total}',
+    left: 'Reste à rembourser : {left}',
+    history: 'Remboursements',
+    addRepay: 'Enregistrer un remboursement',
+    repayAmount: 'Montant reçu',
+    repayDate: 'Date',
+    repayNote: 'Note (facultatif)',
+    repaySave: 'Enregistrer',
+    repayDelete: 'Supprimer',
+    repayDeleteConfirm: 'Supprimer ce remboursement de {amount} ?',
+    editRate: 'Modifier le taux',
+    rate: 'Taux (%)',
+    interestOpt: 'Intérêt (laisser vide pour le calculer)',
+    save: 'Enregistrer',
+    cancel: 'Annuler',
+    overdue: 'Échéance dépassée',
   },
   en: {
     waitGuarantor: 'Waiting for the guarantor: {name} must confirm in the app before the vote.',
@@ -31,7 +48,31 @@ const TXT = {
     grantConfirm: 'Approve this {amount} loan now, without waiting for the vote?',
     refuseConfirm: 'Refuse this {amount} loan now?',
     presidentHint: 'As president, you can decide right away:',
+    terms: 'Rate {rate}% · interest {interest} · total due {total}',
+    paid: 'Repaid {paid} of {total}',
+    left: 'Left to repay: {left}',
+    history: 'Repayments',
+    addRepay: 'Record a repayment',
+    repayAmount: 'Amount received',
+    repayDate: 'Date',
+    repayNote: 'Note (optional)',
+    repaySave: 'Save',
+    repayDelete: 'Delete',
+    repayDeleteConfirm: 'Delete this repayment of {amount}?',
+    editRate: 'Change the rate',
+    rate: 'Rate (%)',
+    interestOpt: 'Interest (leave empty to compute it)',
+    save: 'Save',
+    cancel: 'Cancel',
+    overdue: 'Past due',
   },
+}
+
+// Montant saisi a la main : espaces et virgule acceptes ; NaN si vide ou invalide
+const num = (v: string) => (v.trim() === '' ? NaN : Number(v.replace(/\s/g, '').replace(',', '.')))
+const today = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 const TAG: Record<string, string> = {
@@ -67,6 +108,14 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
   const [fixB, setFixB] = useState('')
   const [fixG, setFixG] = useState('')
   const [needsDecision, setNeedsDecision] = useState<string | null>(null)
+  const [repays, setRepays] = useState<Record<string, LoanRepayment[]>>({})
+  const [repaying, setRepaying] = useState<string | null>(null)
+  const [rAmount, setRAmount] = useState('')
+  const [rDate, setRDate] = useState('')
+  const [rNote, setRNote] = useState('')
+  const [rating, setRating] = useState<string | null>(null)
+  const [rRate, setRRate] = useState('')
+  const [rInterest, setRInterest] = useState('')
 
   const name = (id: string | null) => (id ? members.find((m) => m.user_id === id)?.display_name ?? '—' : '—')
 
@@ -81,7 +130,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
 
     const res = await supabase
       .from('loans')
-      .select('id,link_member_id,borrower_member_id,guarantor_name,guarantor_member_id,guarantor_check,guarantor_response,amount,due_date,status,closes_at,decided_at,decision_basis,dismiss_reason,created_at')
+      .select('id,link_member_id,borrower_member_id,guarantor_name,guarantor_member_id,guarantor_check,guarantor_response,amount,interest_rate,interest,due_date,status,closes_at,decided_at,decision_basis,dismiss_reason,created_at')
       .eq('group_id', gid)
       .order('created_at', { ascending: false })
       .limit(100)
@@ -89,7 +138,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
       setMsg(errMsg(res.error))
       return
     }
-    const list = ((res.data ?? []) as Loan[]).map((l) => ({ ...l, amount: Number(l.amount) }))
+    const list = ((res.data ?? []) as Loan[]).map((l) => ({ ...l, amount: Number(l.amount), interest: Number(l.interest ?? 0) }))
     setLoans(list)
     setLoaded(true)
     const ids = list.map((l) => l.id)
@@ -97,6 +146,10 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
 
     const b = await supabase.from('loan_borrowers').select('loan_id,name,phone,reason').in('loan_id', ids)
     setBorrowers(Object.fromEntries(((b.data ?? []) as LoanBorrower[]).map((x) => [x.loan_id, x])))
+    const rp = await supabase.from('loan_repayments').select('id,loan_id,amount,paid_on,note').in('loan_id', ids).order('paid_on')
+    const byLoan: Record<string, LoanRepayment[]> = {}
+    for (const x of (rp.data ?? []) as LoanRepayment[]) (byLoan[x.loan_id] ??= []).push({ ...x, amount: Number(x.amount) })
+    setRepays(byLoan)
     const v = await supabase.from('loan_votes').select('loan_id,vote').in('loan_id', ids)
     setMyVotes(Object.fromEntries(((v.data ?? []) as Array<{ loan_id: string; vote: string }>).map((x) => [x.loan_id, x.vote])))
 
@@ -162,6 +215,14 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
     const b = borrowers[l.id]
     const voteOver = l.closes_at !== null && new Date(l.closes_at) <= new Date()
     const tl = tally[l.id]
+    const total = l.amount + l.interest
+    const list = repays[l.id] ?? []
+    const sum = list.reduce((a, x) => a + x.amount, 0)
+    const paid = l.status === 'remboursee' ? Math.max(sum, total) : sum
+    const left = Math.max(0, total - paid)
+    const granted = l.status === 'validee' || l.status === 'remboursee'
+    const late = l.status === 'validee' && new Date(l.due_date + 'T23:59:59') < new Date()
+    const m = (n: number) => money(n, cur, locale)
     return (
       <article key={l.id} className="card">
         <div className="row between">
@@ -171,6 +232,50 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
         <div>
           {money(l.amount, cur, locale)} · <small>{t('loanDue', { date: day(l.due_date, locale) })}</small>
         </div>
+        {l.interest_rate !== null && (
+          <small>
+            {tx.terms.replace('{rate}', String(Number(l.interest_rate))).replace('{interest}', m(l.interest)).replace('{total}', m(total))}
+          </small>
+        )}
+        {granted && (
+          <div className="stack">
+            <div className="repay-bar" aria-hidden="true">
+              <i style={{ width: `${total > 0 ? Math.min(100, (paid / total) * 100) : 0}%` }} />
+            </div>
+            <small>{tx.paid.replace('{paid}', m(paid)).replace('{total}', m(total))}</small>
+            {l.status === 'validee' && <strong className={late ? 'bad-text' : ''}>{tx.left.replace('{left}', m(left))}</strong>}
+            {late && <span className="tag bad">{tx.overdue}</span>}
+            {list.length > 0 && (
+              <details>
+                <summary className="small">
+                  {tx.history} ({list.length})
+                </summary>
+                <ul className="fee-list">
+                  {list.map((x) => (
+                    <li key={x.id}>
+                      <span>
+                        {day(x.paid_on, locale)}
+                        {x.note ? ` · ${x.note}` : ''}
+                      </span>
+                      <strong>{m(x.amount)}</strong>
+                      {isP && (
+                        <button
+                          type="button"
+                          className="btn small danger"
+                          onClick={() => {
+                            if (window.confirm(tx.repayDeleteConfirm.replace('{amount}', m(x.amount)))) void call('delete_loan_repayment', { p_id: x.id })
+                          }}
+                        >
+                          {tx.repayDelete}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
         {b && <small className="mono">{b.phone}</small>}
         {b?.reason && <small className="pre">{t('loanReason', { reason: b.reason })}</small>}
         <small>
@@ -343,6 +448,102 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
             </div>
           </div>
         )}
+
+        {l.status === 'validee' && canReview &&
+          (repaying === l.id ? (
+            <div className="stack">
+              <label className="field">
+                <span>
+                  {tx.repayAmount} ({cur})
+                </span>
+                <input inputMode="decimal" value={rAmount} onChange={(e) => setRAmount(e.target.value)} />
+              </label>
+              <label className="field">
+                <span>{tx.repayDate}</span>
+                <input type="date" value={rDate} max={today()} onChange={(e) => setRDate(e.target.value)} />
+              </label>
+              <label className="field">
+                <span>{tx.repayNote}</span>
+                <input maxLength={300} value={rNote} onChange={(e) => setRNote(e.target.value)} />
+              </label>
+              <div className="row">
+                <button
+                  className="btn primary"
+                  disabled={!(num(rAmount) > 0) || !rDate}
+                  onClick={() =>
+                    void call('record_loan_repayment', {
+                      p_loan: l.id,
+                      p_amount: num(rAmount),
+                      p_paid_on: rDate,
+                      p_note: rNote.trim() || null,
+                    }).then((ok) => ok && setRepaying(null))
+                  }
+                >
+                  {tx.repaySave}
+                </button>
+                <button className="btn" onClick={() => setRepaying(null)}>
+                  {tx.cancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="btn primary"
+              onClick={() => {
+                setRepaying(l.id)
+                setRAmount(String(left))
+                setRDate(today())
+                setRNote('')
+              }}
+            >
+              {tx.addRepay}
+            </button>
+          ))}
+
+        {isP && ['a_examiner', 'garant_refuse', 'en_vote', 'validee'].includes(l.status) &&
+          (rating === l.id ? (
+            <div className="stack">
+              <label className="field">
+                <span>{tx.rate}</span>
+                <input inputMode="decimal" value={rRate} onChange={(e) => setRRate(e.target.value)} />
+              </label>
+              <label className="field">
+                <span>
+                  {tx.interestOpt} ({cur})
+                </span>
+                <input inputMode="decimal" value={rInterest} onChange={(e) => setRInterest(e.target.value)} />
+              </label>
+              <div className="row">
+                <button
+                  className="btn primary"
+                  disabled={!(num(rRate) >= 0)}
+                  onClick={() =>
+                    void call('set_loan_interest', {
+                      p_loan: l.id,
+                      p_rate: num(rRate),
+                      p_interest: rInterest.trim() ? num(rInterest) : null,
+                    }).then((ok) => ok && setRating(null))
+                  }
+                >
+                  {tx.save}
+                </button>
+                <button className="btn" onClick={() => setRating(null)}>
+                  {tx.cancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="btn small"
+              onClick={() => {
+                setRating(l.id)
+                setRRate(String(Number(l.interest_rate ?? 0)))
+                setRInterest('')
+              }}
+            >
+              {tx.editRate}
+            </button>
+          ))}
 
         {l.status === 'validee' && isP && (
           <button className="btn" onClick={() => void call('mark_loan_repaid', { p_loan: l.id })}>
