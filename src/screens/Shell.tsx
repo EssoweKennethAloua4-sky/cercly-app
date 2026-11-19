@@ -12,6 +12,7 @@ import { Members } from './Members'
 import { CreateGroup } from './CreateGroup'
 import { Loans } from './Loans'
 import { Settings } from './Settings'
+import { loadSecurityStatus } from '../components/SecurityCard'
 
 type Tab = 'ann' | 'cot' | 'overview' | 'loans' | 'members' | 'settings'
 
@@ -28,6 +29,11 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
   const [bell, setBell] = useState(false)
   const [unread, setUnread] = useState(0)
   const [modules, setModules] = useState<GroupModules>(NO_MODULES)
+  const [needsMfa, setNeedsMfa] = useState(false)
+
+  useEffect(() => {
+    void loadSecurityStatus().then((st) => setNeedsMfa(st.needs_mfa && !st.has_mfa))
+  }, [groups, tab])
 
   const loadMembers = useCallback(async () => {
     const { data } = await supabase
@@ -173,7 +179,17 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
           </button>
           {bell && <NotificationsPanel groupId={gid} currency={active.group.currency} onRead={() => void loadUnread()} />}
         </header>
-        <main className="content">{content}</main>
+        <main className="content">
+          {needsMfa && current !== 'settings' && (
+            <p className="hint-warn">
+              {t('mfaNeededBanner')}{' '}
+              <button type="button" className="link" onClick={() => go('settings')}>
+                {t('mfaNeededGo')}
+              </button>
+            </p>
+          )}
+          {content}
+        </main>
       </div>
 
       <nav className="bn" aria-label="Navigation">

@@ -1,10 +1,21 @@
-# Cercly — application (v0.2)
+# Cercly — application (v0.16)
 
-Interface React + TypeScript branchée sur Supabase. Les règles de sécurité sont dans `supabase/schema.sql` (v0.4) et `supabase/migration-v0.5-prets.sql` (v0.5) : l'application ne fait que les afficher, c'est la base qui les impose.
+Interface React + TypeScript branchée sur Supabase. Les règles de sécurité sont dans `supabase/schema.sql` puis dans les migrations `supabase/migration-v0.5` à `migration-v0.16`, à exécuter dans l'ordre : l'application ne fait que les afficher, c'est la base qui les impose.
+
+## Sécurité (v0.16)
+
+1. Double authentification : facultative pour un simple membre, **obligatoire pour le président, le secrétaire et les validateurs** (sans elle, ils peuvent consulter mais ni valider, ni décider, ni régler). Elle s'active dans Réglages > Mon compte.
+2. Un compte qui a activé la 2FA ne peut plus rien lire ni faire avec le seul mot de passe (règle restrictive sur toutes les tables et sur les justificatifs).
+3. Lien d'invitation : valable 7 jours ; la personne arrive « en attente » et le président ou le secrétaire l'accepte dans l'onglet Membres. L'invitation par e-mail reste une entrée directe.
+4. Le téléphone de l'emprunteur n'est visible que du président, du secrétaire, des validateurs, du garant et du membre dont le lien a servi (fonction `loan_borrower_phones`).
+5. Formulaire public de prêt : aucune demande ne passe au vote sans la confirmation d'un membre ; le membre au nom duquel la demande est faite est prévenu ; 3 demandes au plus par téléphone et par jour.
+6. Remboursements : ajouts et annulations tracés dans le journal ; une annulation exige un motif et prévient tout le groupe.
+
+Encore à faire : test anti-robot (captcha) sur le formulaire public, tests automatiques, test d'intrusion.
 
 ## Ce qui est fait
 
-1. Inscription, connexion, double authentification (code à 6 chiffres) obligatoire pour tous.
+1. Inscription, connexion, double authentification (code à 6 chiffres) : voir « Sécurité (v0.16) ».
 2. Création de groupe, invitation de membres par lien, changement de groupe.
 3. Annonces (publication réservée au président et aux publieurs).
 4. Cotisations : montant, date, pour qui, 1 à 5 justificatifs (images ou PDF), statuts orange / vert / rouge.
@@ -31,7 +42,7 @@ Interface React + TypeScript branchée sur Supabase. Les règles de sécurité s
 
 1. Installez Node.js 20 ou plus récent.
 2. Créez un projet sur https://supabase.com.
-3. Dans Supabase, ouvrez « SQL Editor » : collez et exécutez d'abord `supabase/schema.sql`, puis `supabase/migration-v0.5-prets.sql` (une seule fois chacun).
+3. Dans Supabase, ouvrez « SQL Editor » : collez et exécutez d'abord `supabase/schema.sql`, puis chaque migration dans l'ordre, de `migration-v0.5-prets.sql` à `migration-v0.16-securite.sql` (une seule fois chacune).
 4. Dans « Authentication » :
    - confirmation d'e-mail obligatoire ;
    - authentification multifacteur (TOTP) activée ;

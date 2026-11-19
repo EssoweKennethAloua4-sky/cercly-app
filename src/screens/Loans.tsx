@@ -33,6 +33,7 @@ const TXT = {
     repaySave: 'Enregistrer',
     repayDelete: 'Supprimer',
     repayDeleteConfirm: 'Supprimer ce remboursement de {amount} ?',
+    repayDeleteReason: 'Pourquoi annuler ce remboursement ? (motif visible de tout le groupe)',
     editRate: 'Modifier le taux',
     rate: 'Taux (%)',
     interestOpt: 'Intérêt (laisser vide pour le calculer)',
@@ -60,6 +61,7 @@ const TXT = {
     repaySave: 'Save',
     repayDelete: 'Delete',
     repayDeleteConfirm: 'Delete this repayment of {amount}?',
+    repayDeleteReason: 'Why cancel this repayment? (reason visible to the whole group)',
     editRate: 'Change the rate',
     rate: 'Rate (%)',
     interestOpt: 'Interest (leave empty to compute it)',
@@ -145,8 +147,15 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
     const ids = list.map((l) => l.id)
     if (ids.length === 0) return
 
-    const b = await supabase.from('loan_borrowers').select('loan_id,name,phone,reason').in('loan_id', ids)
-    setBorrowers(Object.fromEntries(((b.data ?? []) as LoanBorrower[]).map((x) => [x.loan_id, x])))
+    // Nom et motif : visibles des votants. Telephone : seulement pour ceux qui y ont droit (fonction loan_borrower_phones).
+    const b = await supabase.from('loan_borrowers').select('loan_id,name,reason').in('loan_id', ids)
+    const ph = await supabase.rpc('loan_borrower_phones', { p_loans: ids })
+    const phones = new Map(((ph.data ?? []) as Array<{ loan_id: string; phone: string }>).map((x) => [x.loan_id, x.phone]))
+    setBorrowers(
+      Object.fromEntries(
+        ((b.data ?? []) as Array<Omit<LoanBorrower, 'phone'>>).map((x) => [x.loan_id, { ...x, phone: phones.get(x.loan_id) ?? '' }]),
+      ),
+    )
     const rp = await supabase.from('loan_repayments').select('id,loan_id,amount,paid_on,note').in('loan_id', ids).order('paid_on')
     const byLoan: Record<string, LoanRepayment[]> = {}
     for (const x of (rp.data ?? []) as LoanRepayment[]) (byLoan[x.loan_id] ??= []).push({ ...x, amount: Number(x.amount) })
@@ -264,7 +273,9 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
                           type="button"
                           className="btn small danger"
                           onClick={() => {
-                            if (window.confirm(tx.repayDeleteConfirm.replace('{amount}', m(x.amount)))) void call('delete_loan_repayment', { p_id: x.id })
+                            if (!window.confirm(tx.repayDeleteConfirm.replace('{amount}', m(x.amount)))) return
+                            const reason = window.prompt(tx.repayDeleteReason)?.trim()
+                            if (reason) void call('delete_loan_repayment', { p_id: x.id, p_reason: reason })
                           }}
                         >
                           {tx.repayDelete}
@@ -277,7 +288,7 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
             )}
           </div>
         )}
-        {b && <small className="mono">{b.phone}</small>}
+        {b && b.phone && <small className="mono">{b.phone}</small>}
         {b?.reason && <small className="pre">{t('loanReason', { reason: b.reason })}</small>}
         <small>
           {t('loanGuarantor', { name: l.guarantor_member_id ? name(l.guarantor_member_id) : l.guarantor_name })} ·{' '}
