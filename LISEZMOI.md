@@ -42,7 +42,7 @@ Encore à faire : test anti-robot (captcha) sur le formulaire public, tests auto
 
 1. Installez Node.js 20 ou plus récent.
 2. Créez un projet sur https://supabase.com.
-3. Dans Supabase, ouvrez « SQL Editor » : collez et exécutez d'abord `supabase/schema.sql`, puis chaque migration dans l'ordre, de `migration-v0.5-prets.sql` à `migration-v0.16-securite.sql` (une seule fois chacune).
+3. Dans Supabase, ouvrez « SQL Editor » : collez et exécutez d'abord `supabase/schema.sql`, puis chaque migration dans l'ordre, de `migration-v0.5-prets.sql` à `migration-v0.16.1-fonctions-anon.sql` (une seule fois chacune).
 4. Dans « Authentication » :
    - confirmation d'e-mail obligatoire ;
    - authentification multifacteur (TOTP) activée ;
