@@ -6,6 +6,7 @@ import { leads } from '../types'
 import { errMsg, money } from '../lib/format'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { LangSwitch } from '../components/LangSwitch'
+import { SecurityCard } from '../components/SecurityCard'
 import { useInstall } from '../lib/install'
 import { MIXX_BY_YAS, parseFeeTable, type FeeTier } from '../lib/fees'
 import '../suivi.css'
@@ -458,6 +459,8 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
       {ok && <p className="ok-text">{t('setSaved')}</p>}
 
       <h3 className="set-heading">{tx.account}</h3>
+
+      <SecurityCard />
 
       <section className="card">
         <h3>{tx.appearance}</h3>

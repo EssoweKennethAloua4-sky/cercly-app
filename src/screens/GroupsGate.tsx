@@ -22,6 +22,10 @@ const TXT = {
     joinAs: 'Vous êtes connecté(e) avec {email}.',
     notMe: 'Ce n’est pas mon compte',
     notMeHint: 'Vous serez déconnecté(e) et vous pourrez créer votre compte avec ce lien.',
+    pendingTitle: 'Demande envoyée',
+    pendingText: 'Votre demande pour rejoindre « {group} » est envoyée. Le président ou le secrétaire doit l’accepter : vous verrez le groupe dès que ce sera fait.',
+    pendingList: 'En attente d’acceptation : {groups}',
+    ok: 'OK',
   },
   en: {
     welcomeTitle: 'Welcome to Cercly',
@@ -36,6 +40,10 @@ const TXT = {
     joinAs: 'You are signed in as {email}.',
     notMe: 'This is not my account',
     notMeHint: 'You will be signed out and can create your account with this link.',
+    pendingTitle: 'Request sent',
+    pendingText: 'Your request to join "{group}" has been sent. The president or the secretary has to accept it: you will see the group as soon as they do.',
+    pendingList: 'Waiting for approval: {groups}',
+    ok: 'OK',
   },
 }
 
@@ -64,6 +72,12 @@ function Welcome({ onCreated, onInvite }: { onCreated: () => void; onInvite: (co
   const [step, setStep] = useState<'choose' | 'create' | 'join'>('choose')
   const [link, setLink] = useState('')
   const [msg, setMsg] = useState('')
+  const [pendingGroups, setPendingGroups] = useState<string[]>([])
+  useEffect(() => {
+    void supabase.rpc('my_pending_groups').then(({ data }) => {
+      setPendingGroups(((data ?? []) as Array<{ group_name: string }>).map((x) => x.group_name))
+    })
+  }, [])
 
   if (step === 'create') return <CreateGroup onDone={onCreated} onCancel={() => setStep('choose')} />
 
@@ -99,6 +113,7 @@ function Welcome({ onCreated, onInvite }: { onCreated: () => void; onInvite: (co
     <div className="card narrow">
       <h1>{tx.welcomeTitle}</h1>
       <p className="small">{tx.welcomeIntro}</p>
+      {pendingGroups.length > 0 && <p className="hint-warn">{tx.pendingList.replace('{groups}', pendingGroups.join(', '))}</p>}
       <button type="button" className="choice-card" onClick={() => setStep('join')}>
         <strong>{tx.joinWithLink}</strong>
         <span className="small">{tx.joinWithLinkHint}</span>
@@ -121,19 +136,28 @@ function JoinGroup({ token, onDone }: { token: string; onDone: () => void }) {
   const [email, setEmail] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(true)
+  const [pendingName, setPendingName] = useState('')
   const tried = useRef(false)
 
   const join = useCallback(
     async (displayName: string) => {
       setBusy(true)
       setMsg('')
-      const { error } = await supabase.rpc('accept_invitation', { p_token: token, p_display_name: displayName })
+      const { data, error } = await supabase.rpc('accept_invitation', { p_token: token, p_display_name: displayName })
       if (error) {
         setMsg(errMsg(error))
         setBusy(false)
         return
       }
       await clearInvite()
+      // Lien ouvert : l'entree attend l'accord du president ou du secretaire
+      const pend = await supabase.rpc('my_pending_groups')
+      const mine = ((pend.data ?? []) as Array<{ group_id: string; group_name: string }>).find((x) => x.group_id === data)
+      if (mine) {
+        setPendingName(mine.group_name)
+        setBusy(false)
+        return
+      }
       onDone()
     },
     [token, onDone],
@@ -168,6 +192,19 @@ function JoinGroup({ token, onDone }: { token: string; onDone: () => void }) {
   }
 
   if (busy && !msg) return <div className="center">{t('loading')}</div>
+
+  if (pendingName)
+    return (
+      <div className="center">
+        <div className="card narrow">
+          <h1>{tx.pendingTitle}</h1>
+          <p>{tx.pendingText.replace('{group}', pendingName)}</p>
+          <button type="button" className="btn primary" onClick={onDone}>
+            {tx.ok}
+          </button>
+        </div>
+      </div>
+    )
 
   return (
     <div className="center">

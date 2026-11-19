@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { Membership, MyGroup } from '../types'
@@ -23,6 +23,30 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
   const [msg, setMsg] = useState('')
 
   const validators = members.filter((m) => m.can_validate || m.is_president).length
+
+  // Personnes arrivees par le lien d'invitation : en attente de l'accord du president ou du secretaire
+  const [pending, setPending] = useState<Array<{ user_id: string; display_name: string; joined_at: string }>>([])
+  const loadPending = useCallback(async () => {
+    if (!isP) return
+    const { data } = await supabase
+      .from('memberships')
+      .select('user_id,display_name,joined_at')
+      .eq('group_id', gid)
+      .eq('status', 'en_attente')
+      .order('joined_at')
+    setPending((data ?? []) as Array<{ user_id: string; display_name: string; joined_at: string }>)
+  }, [gid, isP])
+  useEffect(() => {
+    void loadPending()
+  }, [loadPending])
+
+  async function reviewMember(userIdToReview: string, accept: boolean) {
+    setMsg('')
+    const { error } = await supabase.rpc('review_member', { p_group: gid, p_user: userIdToReview, p_accept: accept })
+    if (error) setMsg(errMsg(error))
+    await loadPending()
+    await reloadMembers()
+  }
 
   async function toggle(m: Membership, field: 'can_validate' | 'can_publish') {
     setMsg('')
@@ -107,6 +131,26 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {isP && pending.length > 0 && (
+        <div className="card">
+          <h3>{t('memPending')}</h3>
+          <p className="small">{t('memPendingHint')}</p>
+          {pending.map((p) => (
+            <div key={p.user_id} className="row between wrap">
+              <strong>{p.display_name}</strong>
+              <div className="row">
+                <button type="button" className="btn small ok" onClick={() => void reviewMember(p.user_id, true)}>
+                  {t('memAccept')}
+                </button>
+                <button type="button" className="btn small danger" onClick={() => void reviewMember(p.user_id, false)}>
+                  {t('memRefuse')}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
