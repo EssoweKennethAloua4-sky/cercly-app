@@ -255,6 +255,12 @@ const fr = {
   per_mois: 'Mois',
   per_annee: 'Année',
   setSaved: 'Enregistré.',
+  // mode demo
+  demoOr: 'ou',
+  demoTry: 'Essayer la démo',
+  demoTryHint: 'Sans inscription : un groupe fictif déjà rempli, avec des justificatifs à valider.',
+  demoBanner: 'Démo : groupe et membres fictifs, remis à zéro chaque nuit. Inviter, publier ou modifier les réglages est désactivé.',
+  demoLeave: 'Quitter la démo',
 }
 
 type Dict = typeof fr
@@ -502,6 +508,12 @@ const en: Dict = {
   per_mois: 'Month',
   per_annee: 'Year',
   setSaved: 'Saved.',
+  // demo mode
+  demoOr: 'or',
+  demoTry: 'Try the demo',
+  demoTryHint: 'No sign-up: a sample group already filled in, with receipts waiting for approval.',
+  demoBanner: 'Demo: sample group and members, reset every night. Inviting, posting and changing settings are turned off.',
+  demoLeave: 'Leave the demo',
 }
 
 const dicts: Record<Locale, Dict> = { fr, en }

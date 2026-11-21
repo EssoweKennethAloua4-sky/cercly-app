@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { demoAvailable, signInDemo, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import { Logo } from '../components/Logo'
 import { LangSwitch } from '../components/LangSwitch'
@@ -115,6 +115,15 @@ export function AuthScreen() {
     }
   }
 
+  // Un clic : connexion au compte demo (App ouvre ensuite le groupe fictif)
+  async function tryDemo() {
+    setMsg('')
+    setBusy(true)
+    const r = await signInDemo()
+    setBusy(false)
+    if (r.error) setMsg(authError(r.error))
+  }
+
   async function resend() {
     if (!sent || cooldown > 0) return
     setMsg('')
@@ -202,6 +211,15 @@ export function AuthScreen() {
         <button type="button" className="link" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg('') }}>
           {mode === 'in' ? t('toSignUp') : t('toSignIn')}
         </button>
+        {demoAvailable && !invite && (
+          <div className="auth-demo">
+            <span className="auth-or">{t('demoOr')}</span>
+            <button type="button" className="btn" disabled={busy} onClick={() => void tryDemo()}>
+              {t('demoTry')}
+            </button>
+            <p className="small">{t('demoTryHint')}</p>
+          </div>
+        )}
       </form>
     </div>
   )

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, signOut, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupModules, ModuleName, MyGroup } from '../types'
 import { leads } from '../types'
@@ -460,7 +460,7 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
 
       <h3 className="set-heading">{tx.account}</h3>
 
-      <SecurityCard />
+      {!isDemo() && <SecurityCard />}
 
       <section className="card">
         <h3>{tx.appearance}</h3>
@@ -493,15 +493,17 @@ export function Settings({ group, userId, modules, reloadModules, reloadGroups, 
       <section className="card">
         <div className="row between">
           <h3>{tx.language}</h3>
-          <LangSwitch onChange={(l) => void supabase.from('profiles').update({ locale: l }).eq('id', userId)} />
+          <LangSwitch onChange={(l) => void (isDemo() || supabase.from('profiles').update({ locale: l }).eq('id', userId))} />
         </div>
-        <div className="row between wrap">
-          <p className="small">{tx.newGroupHint}</p>
-          <button type="button" className="btn small" onClick={onNewGroup}>
-            {t('newGroup')}
-          </button>
-        </div>
-        <button type="button" className="btn danger set-signout" onClick={() => void supabase.auth.signOut()}>
+        {!isDemo() && (
+          <div className="row between wrap">
+            <p className="small">{tx.newGroupHint}</p>
+            <button type="button" className="btn small" onClick={onNewGroup}>
+              {t('newGroup')}
+            </button>
+          </div>
+        )}
+        <button type="button" className="btn danger set-signout" onClick={() => void signOut()}>
           {t('signOut')}
         </button>
       </section>

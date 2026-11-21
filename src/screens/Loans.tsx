@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Loan, LoanBorrower, LoanRepayment, Membership, MyGroup } from '../types'
@@ -582,40 +582,43 @@ export function Loans({ group, members, userId }: { group: MyGroup; members: Mem
       <h2>{t('loansTitle')}</h2>
       {msg && <p className="msg">{msg}</p>}
 
-      <section className="card">
-        <h3>{t('loanMyLink')}</h3>
-        <p className="small">{t('loanLinkIntro')}</p>
-        {!link && (
-          <button className="btn primary" onClick={() => void call('get_or_create_loan_link', { p_group: gid })}>
-            {t('loanLinkCreate')}
-          </button>
-        )}
-        {link && (
-          <>
-            <input readOnly value={url} onFocus={(e) => e.target.select()} />
-            {link.status === 'pause' && <p className="small warn-text">{t('loanLinkPaused')}</p>}
-            <div className="row wrap">
-              <button className="btn small" onClick={() => void copyLink(url)}>
-                {copied ? t('copied') : t('copy')}
-              </button>
-              <button
-                className="btn small"
-                onClick={() => {
-                  if (window.confirm(t('loanLinkRegenConfirm'))) {
-                    setCopied(false)
-                    void call('regenerate_loan_link', { p_group: gid })
-                  }
-                }}
-              >
-                {t('loanLinkRegenerate')}
-              </button>
-              <button className="btn small" onClick={() => void call('set_loan_link_paused', { p_group: gid, p_paused: link.status === 'actif' })}>
-                {link.status === 'actif' ? t('loanLinkPause') : t('loanLinkResume')}
-              </button>
-            </div>
-          </>
-        )}
-      </section>
+      {/* Lien public de demande de pret : pas pour le compte demo (des inconnus deposeraient leurs vraies coordonnees) */}
+      {!isDemo() && (
+        <section className="card">
+          <h3>{t('loanMyLink')}</h3>
+          <p className="small">{t('loanLinkIntro')}</p>
+          {!link && (
+            <button className="btn primary" onClick={() => void call('get_or_create_loan_link', { p_group: gid })}>
+              {t('loanLinkCreate')}
+            </button>
+          )}
+          {link && (
+            <>
+              <input readOnly value={url} onFocus={(e) => e.target.select()} />
+              {link.status === 'pause' && <p className="small warn-text">{t('loanLinkPaused')}</p>}
+              <div className="row wrap">
+                <button className="btn small" onClick={() => void copyLink(url)}>
+                  {copied ? t('copied') : t('copy')}
+                </button>
+                <button
+                  className="btn small"
+                  onClick={() => {
+                    if (window.confirm(t('loanLinkRegenConfirm'))) {
+                      setCopied(false)
+                      void call('regenerate_loan_link', { p_group: gid })
+                    }
+                  }}
+                >
+                  {t('loanLinkRegenerate')}
+                </button>
+                <button className="btn small" onClick={() => void call('set_loan_link_paused', { p_group: gid, p_paused: link.status === 'actif' })}>
+                  {link.status === 'actif' ? t('loanLinkPause') : t('loanLinkResume')}
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {loaded && loans.length === 0 && <Empty icon="loans" title={t('loanNone')} text={t('loanNoneHint')} />}
       {loans.map(card)}

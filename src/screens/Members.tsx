@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { Membership, MyGroup } from '../types'
 import { leads } from '../types'
@@ -111,7 +111,7 @@ export function Members({ group, members, userId, reloadMembers, reloadGroups }:
       {isP && validators < 2 && <p className="hint-warn">{t('memWarnOneValidator')}</p>}
       {msg && <p className="msg">{msg}</p>}
 
-      {isP && (
+      {isP && !isDemo() && (
         <div className="card">
           <h3>{t('memInvite')}</h3>
           <button type="button" className="btn primary" onClick={() => void createLink()}>

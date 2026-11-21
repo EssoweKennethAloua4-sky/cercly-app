@@ -67,6 +67,25 @@ Encore à faire : test anti-robot (captcha) sur le formulaire public, tests auto
 3. Remplissez le formulaire en indiquant comme garant le nom d'un autre membre.
 4. Connectez-vous avec ce membre : il confirme qu'il se porte garant, puis le vote s'ouvre.
 
+## Mode démo (bouton « Essayer la démo »)
+
+Un visiteur entre en un clic, sans inscription, dans un groupe fictif déjà rempli : 10 faux membres, 6 mois de cotisations (validées, en attente, en retard, une rejetée), 3 justificatifs à valider, 4 prêts (en cours de remboursement, au vote, remboursé, en attente du garant).
+
+Mise en place (une fois) :
+
+1. Authentication > Users > Add user : `kennethaloua3+cercly-demo@gmail.com`, un mot de passe, « Auto Confirm User » coché. Ce compte ne doit servir qu'à la démo.
+2. SQL Editor : exécutez `supabase/migration-v0.17-demo.sql`.
+3. Déposez les 3 faux justificatifs : `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node supabase/demo/upload-justificatifs.mjs` (ou à la main, voir l'en-tête du script).
+4. Sur Vercel, ajoutez `VITE_DEMO_EMAIL` et `VITE_DEMO_PASSWORD`, puis redéployez. Sans ces deux variables, le bouton n'apparaît pas.
+
+Sécurité : le mot de passe de la démo est lisible dans l'application, c'est donc la base qui limite ce compte.
+
+- Il n'appartient qu'au groupe démo, et personne d'autre ne peut y entrer. Il ne voit aucun vrai groupe.
+- Il ne peut pas changer son mot de passe ni son e-mail, activer la double authentification, inviter, rejoindre ou créer un groupe, gérer les membres, modifier les réglages, publier, envoyer une cotisation ou un fichier, ni créer un lien de prêt public.
+- Il peut consulter, valider ou rejeter, voter, confirmer comme garant, décider d'un prêt, enregistrer un remboursement.
+- Chaque nuit à 3 h (heure de Lomé), `demo_reset()` remet le groupe à zéro (tâche pg_cron `cercly-demo-reset`).
+- Les visiteurs partagent le même compte : dans la journée, l'un peut voir ce qu'un autre a validé.
+
 ## Mise en ligne (Vercel)
 
 1. Envoyez le projet sur GitHub (le fichier `.env` est ignoré).

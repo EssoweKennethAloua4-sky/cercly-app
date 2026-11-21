@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { signOut, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import { Logo } from '../components/Logo'
 import { errMsg } from '../lib/format'
@@ -85,7 +85,7 @@ export function MfaScreen({ onDone }: { onDone: () => void }) {
         <button className="btn primary" disabled={busy || !factorId}>
           {t('mfaConfirm')}
         </button>
-        <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
+        <button type="button" className="link" onClick={() => void signOut()}>
           {t('signOut')}
         </button>
       </form>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { signOut, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupInfo, Membership, MyGroup } from '../types'
 import { errMsg } from '../lib/format'
@@ -122,7 +122,7 @@ function Welcome({ onCreated, onInvite }: { onCreated: () => void; onInvite: (co
         <strong>{tx.create}</strong>
         <span className="small">{tx.createHint}</span>
       </button>
-      <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
+      <button type="button" className="link" onClick={() => void signOut()}>
         {t('signOut')}
       </button>
     </div>
@@ -183,7 +183,7 @@ function JoinGroup({ token, onDone }: { token: string; onDone: () => void }) {
   async function notMe() {
     // l'invitation reste en memoire (sessionStorage) : l'ecran de connexion s'ouvrira sur « Creer un compte »
     sessionStorage.setItem('cercly.invite', token)
-    await supabase.auth.signOut()
+    await signOut()
   }
 
   async function submit(e: FormEvent) {
