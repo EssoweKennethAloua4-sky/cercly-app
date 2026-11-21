@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Contribution, ContributionStatus, Membership, MyGroup } from '../types'
@@ -59,6 +59,7 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
   const gid = group.group_id
   const cur = group.group.currency
   const canReview = group.can_validate || leads(group)
+  const demo = isDemo()
   const [list, setList] = useState<Contribution[]>([])
   const [loaded, setLoaded] = useState(false)
   const [forId, setForId] = useState('')
@@ -259,80 +260,84 @@ export function Contributions({ group, members, userId }: { group: MyGroup; memb
 
   return (
     <div className="stack">
-      <form className="card" onSubmit={submit}>
-        <h2>{t('cotNew')}</h2>
-        <label className="field">
-          <span>{t('cotFor')}</span>
-          <select required value={forId} onChange={(e) => setForId(e.target.value)}>
-            <option value="">{t('cotChoose')}</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid2">
+      {/* Compte demo : pas d'envoi (refuse par la base) ; « A traiter » passe en premier */}
+      {!demo && (
+        <form className="card" onSubmit={submit}>
+          <h2>{t('cotNew')}</h2>
           <label className="field">
-            <span>{feeTable ? tx.sent.replace('{cur}', cur) : `${t('cotAmount')} (${cur})`}</span>
-            <input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <span>{t('cotFor')}</span>
+            <select required value={forId} onChange={(e) => setForId(e.target.value)}>
+              <option value="">{t('cotChoose')}</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.display_name}
+                </option>
+              ))}
+            </select>
           </label>
-          <label className="field">
-            <span>{t('cotDate')}</span>
-            <input type="date" required value={date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} />
-          </label>
-        </div>
-        {feeTable && (
-          <label className="field">
-            <span>{tx.fee.replace('{cur}', cur)}</span>
-            <input
-              inputMode="decimal"
-              value={feeTouched ? feeText : sentNum > 0 ? String(feeNum) : ''}
-              onChange={(e) => {
-                setFeeTouched(true)
-                setFeeText(e.target.value)
-              }}
-            />
-            <small>{tx.feeHint}</small>
-          </label>
-        )}
-        {penaltyOpen ? (
-          <label className="field">
-            <span>{tx.penalty.replace('{cur}', cur)}</span>
-            <input inputMode="decimal" value={penaltyText} onChange={(e) => setPenaltyText(e.target.value)} placeholder="500" />
-            <small>{tx.penaltyHint}</small>
-          </label>
-        ) : (
-          <button type="button" className="link" onClick={() => setPenaltyOpen(true)}>
-            {tx.addPenalty}
-          </button>
-        )}
-        {(feeTable || penaltyNum > 0) && sentNum > 0 && netNum > 0 && (
-          <p className="fee-split">
-            = {splitText(tx, fmtMoney, netNum, penaltyNum, feeTable ? feeNum : 0, feeTable !== null)}
-          </p>
-        )}
-        <div className="field">
-          <span>{t('cotProofs')}</span>
-          {/* bouton maison : le champ du navigateur affiche « Sélect. fichiers » dans la langue du systeme */}
-          <div className="picker">
-            <label className="btn small file">
-              {t('cotPick')}
-              <input key={fileKey} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={pick} />
+          <div className="grid2">
+            <label className="field">
+              <span>{feeTable ? tx.sent.replace('{cur}', cur) : `${t('cotAmount')} (${cur})`}</span>
+              <input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
-            <p className="small">{files.length === 0 ? t('cotNoFile') : files.map((f) => f.name).join(', ')}</p>
+            <label className="field">
+              <span>{t('cotDate')}</span>
+              <input type="date" required value={date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} />
+            </label>
           </div>
-        </div>
-        <label className="field">
-          <span>{t('cotNote')}</span>
-          <input maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-        {msg && <p className="msg">{msg}</p>}
-        {ok && <p className="ok-text">{ok}</p>}
-        <button className="btn primary" disabled={busy}>
-          {t('cotSubmit')}
-        </button>
-      </form>
+          {feeTable && (
+            <label className="field">
+              <span>{tx.fee.replace('{cur}', cur)}</span>
+              <input
+                inputMode="decimal"
+                value={feeTouched ? feeText : sentNum > 0 ? String(feeNum) : ''}
+                onChange={(e) => {
+                  setFeeTouched(true)
+                  setFeeText(e.target.value)
+                }}
+              />
+              <small>{tx.feeHint}</small>
+            </label>
+          )}
+          {penaltyOpen ? (
+            <label className="field">
+              <span>{tx.penalty.replace('{cur}', cur)}</span>
+              <input inputMode="decimal" value={penaltyText} onChange={(e) => setPenaltyText(e.target.value)} placeholder="500" />
+              <small>{tx.penaltyHint}</small>
+            </label>
+          ) : (
+            <button type="button" className="link" onClick={() => setPenaltyOpen(true)}>
+              {tx.addPenalty}
+            </button>
+          )}
+          {(feeTable || penaltyNum > 0) && sentNum > 0 && netNum > 0 && (
+            <p className="fee-split">
+              = {splitText(tx, fmtMoney, netNum, penaltyNum, feeTable ? feeNum : 0, feeTable !== null)}
+            </p>
+          )}
+          <div className="field">
+            <span>{t('cotProofs')}</span>
+            {/* bouton maison : le champ du navigateur affiche « Sélect. fichiers » dans la langue du systeme */}
+            <div className="picker">
+              <label className="btn small file">
+                {t('cotPick')}
+                <input key={fileKey} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={pick} />
+              </label>
+              <p className="small">{files.length === 0 ? t('cotNoFile') : files.map((f) => f.name).join(', ')}</p>
+            </div>
+          </div>
+          <label className="field">
+            <span>{t('cotNote')}</span>
+            <input maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          {msg && <p className="msg">{msg}</p>}
+          {ok && <p className="ok-text">{ok}</p>}
+          <button className="btn primary" disabled={busy}>
+            {t('cotSubmit')}
+          </button>
+        </form>
+      )}
+      {demo && msg && <p className="msg">{msg}</p>}
 
       {canReview && (
         <section className="stack">

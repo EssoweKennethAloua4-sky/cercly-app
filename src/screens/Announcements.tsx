@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, supabase } from '../supabase'
 import { Empty } from '../components/Icon'
 import { useI18n } from '../i18n'
 import type { Announcement, Membership, MyGroup } from '../types'
@@ -9,7 +9,8 @@ import { day, errMsg } from '../lib/format'
 export function Announcements({ group, members, userId }: { group: MyGroup; members: Membership[]; userId: string }) {
   const { t, locale } = useI18n()
   const gid = group.group_id
-  const canPublish = group.can_publish || leads(group)
+  // Compte demo : ni publier ni supprimer (refuse par la base)
+  const canPublish = (group.can_publish || leads(group)) && !isDemo()
   const [items, setItems] = useState<Announcement[]>([])
   const [loaded, setLoaded] = useState(false)
   const [title, setTitle] = useState('')
@@ -76,7 +77,7 @@ export function Announcements({ group, members, userId }: { group: MyGroup; memb
         <article key={a.id} className="card accent">
           <div className="row between">
             <h3>{a.title}</h3>
-            {(leads(group) || (canPublish && a.author_id === userId)) && (
+            {!isDemo() && (leads(group) || (canPublish && a.author_id === userId)) && (
               <button className="btn small" onClick={() => void remove(a.id)}>
                 {t('annDelete')}
               </button>
