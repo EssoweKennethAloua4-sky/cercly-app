@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { supabase } from '../supabase'
+import { signOut, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import { errMsg } from '../lib/format'
 
@@ -93,7 +93,7 @@ export function CreateGroup({ onDone, onCancel, first }: { onDone: (id: string) 
           </button>
         )}
         {first && (
-          <button type="button" className="link" onClick={() => void supabase.auth.signOut()}>
+          <button type="button" className="link" onClick={() => void signOut()}>
             {t('signOut')}
           </button>
         )}

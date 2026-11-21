@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { configured, supabase } from './supabase'
+import { configured, isDemoEmail, setDemoSession, supabase } from './supabase'
 import { useI18n } from './i18n'
 import { AuthScreen } from './screens/Auth'
 import { MfaScreen } from './screens/Mfa'
@@ -28,6 +28,7 @@ export default function App() {
 
   const evaluate = useCallback(async (s: Session | null) => {
     setSession(s)
+    setDemoSession(isDemoEmail(s?.user.email))
     if (!s) {
       setGate('signed-out')
       return
@@ -40,6 +41,11 @@ export default function App() {
       await supabase.auth.signOut({ scope: 'local' })
       setSession(null)
       setGate('signed-out')
+      return
+    }
+    // Compte demo : jamais de 2FA (la base l'interdit et l'ignore)
+    if (isDemoEmail(s.user.email)) {
+      setGate('ready')
       return
     }
     // La 2FA n'est demandee que si la personne l'a activee elle-meme.

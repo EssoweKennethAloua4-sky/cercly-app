@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../supabase'
+import { isDemo, signOut, supabase } from '../supabase'
 import { useI18n } from '../i18n'
 import type { GroupModules, Locale, Membership, ModuleName, MyGroup } from '../types'
 import { Logo } from '../components/Logo'
@@ -31,9 +31,12 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
   const [modules, setModules] = useState<GroupModules>(NO_MODULES)
   const [needsMfa, setNeedsMfa] = useState(false)
 
+  const demo = isDemo()
+
   useEffect(() => {
+    if (demo) return
     void loadSecurityStatus().then((st) => setNeedsMfa(st.needs_mfa && !st.has_mfa))
-  }, [groups, tab])
+  }, [groups, tab, demo])
 
   const loadMembers = useCallback(async () => {
     const { data } = await supabase
@@ -79,7 +82,9 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
     }
   }, [loadUnread])
 
+  // Compte demo partage : chaque visiteur garde sa propre langue
   useEffect(() => {
+    if (demo) return
     void supabase
       .from('profiles')
       .select('locale')
@@ -88,7 +93,7 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
       .then(({ data }) => {
         if (data && (data.locale === 'fr' || data.locale === 'en')) setLocale(data.locale as Locale)
       })
-  }, [userId, setLocale])
+  }, [userId, setLocale, demo])
 
   function selectGroup(id: string) {
     setActiveId(id)
@@ -180,6 +185,14 @@ export function Shell({ userId, groups, reload }: { userId: string; groups: MyGr
           {bell && <NotificationsPanel groupId={gid} currency={active.group.currency} onRead={() => void loadUnread()} />}
         </header>
         <main className="content">
+          {demo && (
+            <div className="demo-banner" role="note">
+              <span>{t('demoBanner')}</span>
+              <button type="button" className="btn small" onClick={() => void signOut()}>
+                {t('demoLeave')}
+              </button>
+            </div>
+          )}
           {needsMfa && current !== 'settings' && (
             <p className="hint-warn">
               {t('mfaNeededBanner')}{' '}

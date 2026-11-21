@@ -11,7 +11,11 @@ grant usage on schema auth to anon, authenticated;
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
-  email_confirmed_at timestamptz
+  email_confirmed_at timestamptz,
+  encrypted_password text,
+  email_change text,
+  phone text,
+  phone_change text
 );
 create table auth.mfa_factors (
   id uuid primary key default gen_random_uuid(),
